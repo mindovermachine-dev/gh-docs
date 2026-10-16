@@ -12,13 +12,18 @@ runs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: "20"
+        node-version: "24"
 
     # Install npm packages required by .githooks/pre-commit
-    - name: Install linting and checker tools
+    - name: Install insitu
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
       shell: bash
-      run: npm install -g cspell markdownlint-cli2 @cspell/dict-da-dk prettier
+      run: |
+        gh extension install devx-cafe/gh-insitu
+        gh insitu run prep-runner
 
+    
     - name: Verify environment
       if: ${{ inputs.verify }}
       shell: bash

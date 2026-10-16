@@ -1,8 +1,7 @@
 {
   "version": "0.2",
   "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
-  "import": ["@cspell/dict-da-dk/cspell-ext.json"],
-  "language": "en-US, da-DK",
+  "language": "en-US",
   "ignorePaths": [
     "**/node_modules/**",
     "**/bower_components/**",
@@ -23,6 +22,8 @@
     "**/Makefile",
     "**/go.mod",
     "**/go.sum",
+    "**/testdata/**",
+    "**/package.json",
   ],
   "files": [
     "**/*.md",

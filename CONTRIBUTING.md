@@ -96,7 +96,7 @@ These files contain essential information about:
    make build
 
    # Test the binary
-   ./godo --help
+   ./docs --help
    ```
 
 5. **Commit Your Changes**
@@ -186,7 +186,7 @@ func TestFunction(t *testing.T) {
 make build
 ```
 
-This creates the `godo` binary in the repository root.
+This creates the `docs` binary in the `./bin` folder.
 
 ### Multi-Platform Builds
 
@@ -299,7 +299,7 @@ make clean
 make build
 
 # Run with verbose output
-go build -v -o ./godo .
+go build -v -o ./bin/docs .
 ```
 
 ## Getting Help

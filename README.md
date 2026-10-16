@@ -185,7 +185,7 @@ If you run `gh auth status` you will see that you now have both.
 Enable MCP servers marketplace
 
 - [ ] Open the extensions panel (CTRL+SHIFT+X) search for `@mcp`, click _"Enable MCP servers marketplace"_
-- [ ] Find the **"GitHub"** MCP server and install it. (It will take you to the webbrowser to authorize the app)
+- [ ] Find the **"GitHub"** MCP server and install it. (It will take you to the web browser to authorize the app)
 
 Find and install (or just verify) the following extensions.
 

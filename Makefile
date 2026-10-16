@@ -8,7 +8,7 @@
 BINARY_NAME=docs
 
 # Build directory
-BUILD_DIR=.
+BUILD_DIR=./bin
 
 # Coverage threshold (percentage)
 COVERAGE_THRESHOLD=70
@@ -22,6 +22,9 @@ GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
 GOFMT=$(GOCMD) fmt
 GOVET=$(GOCMD) vet
+
+# Go packages, excluding npm's node_modules which may ship Go sources
+PKGS=$(shell $(GOCMD) list ./... | grep -v /node_modules/)
 
 # Build flags
 LDFLAGS=-ldflags "-s -w"
@@ -46,10 +49,10 @@ build-all: ## Build for multiple platforms (Linux, Darwin, Windows for AMD64 and
 	@echo "✅ Built binaries for all platforms in dist/"
 
 test: ## Run tests
-	$(GOTEST) -v ./...
+	$(GOTEST) -v $(PKGS)
 
 coverage: ## Run tests with coverage
-	$(GOTEST) -v -coverprofile=coverage.txt -covermode=atomic ./...
+	$(GOTEST) -v -coverprofile=coverage.txt -covermode=atomic $(PKGS)
 	$(GOCMD) tool cover -html=coverage.txt -o coverage.html
 	@echo "✅ Coverage report generated: coverage.html"
 	@$(MAKE) coverage-check
@@ -83,11 +86,11 @@ install-lint: ## Install golangci-lint
 	@echo "✅ golangci-lint installed"
 
 fmt: ## Format code
-	$(GOFMT) ./...
+	$(GOFMT) $(PKGS)
 	@echo "✅ Code formatted"
 
 vet: ## Run go vet
-	$(GOVET) ./...
+	$(GOVET) $(PKGS)
 	@echo "✅ Vet completed"
 
 clean: ## Remove build artifacts

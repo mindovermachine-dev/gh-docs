@@ -1,0 +1,26 @@
+[
+  {
+    "name": "alpha",
+    "description": "Alpha docs",
+    "homepageUrl": "https://example.github.io/alpha",
+    "repositoryTopics": [{ "name": "documentation" }]
+  },
+  {
+    "name": "beta",
+    "description": "No docs here",
+    "homepageUrl": "",
+    "repositoryTopics": [{ "name": "other" }]
+  },
+  {
+    "name": "gamma",
+    "description": "Repo without topics",
+    "homepageUrl": "https://example.github.io/gamma",
+    "repositoryTopics": null
+  },
+  {
+    "name": "delta",
+    "description": "Docs & <more>",
+    "homepageUrl": "",
+    "repositoryTopics": [{ "name": "Other" }, { "name": "Documentation" }]
+  }
+]

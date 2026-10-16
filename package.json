@@ -1,0 +1,9 @@
+{
+  "name": "gh-docs",
+  "devDependencies": {
+    "@mindovermachine-dev/remote-astro-theme": "^0.1.0",
+    "cspell": "^10.4.0",
+    "markdownlint-cli2": "^0.21.0",
+    "prettier": "^3.9.10"
+  }
+}
