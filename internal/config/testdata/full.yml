@@ -1,0 +1,8 @@
+index:
+  owner: acme
+  visibility: private
+  topic: docs
+  file: out/list.json
+  limit: 5
+template:
+  output: site

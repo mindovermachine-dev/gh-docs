@@ -8,7 +8,7 @@
 BINARY_NAME=docs
 
 # Build directory
-BUILD_DIR=.
+BUILD_DIR=./bin
 
 # Coverage threshold (percentage)
 COVERAGE_THRESHOLD=70

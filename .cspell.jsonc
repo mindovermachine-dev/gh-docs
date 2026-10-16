@@ -23,6 +23,7 @@
     "**/Makefile",
     "**/go.mod",
     "**/go.sum",
+    "**/testdata/**",
   ],
   "files": [
     "**/*.md",

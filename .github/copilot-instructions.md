@@ -79,7 +79,7 @@ This project is designed to be installed as a GitHub CLI extension:
 
 ```bash
 gh extension install mindovermachine-dev/gh-docs
-gh docs mkissue --file issue.md
+gh docs index --owner my-org
 ```
 
 The binary must be named `docs` and placed in the repository root to be recognized by the `gh` CLI.

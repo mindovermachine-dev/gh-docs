@@ -1,0 +1,4 @@
+title: Documentation
+theme: minima
+# Read data files (docs-repos.yml) from the site root, next to index.md.
+data_dir: .

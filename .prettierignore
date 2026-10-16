@@ -27,3 +27,6 @@ vendor/
 # Other
 Makefile
 coverage.txt
+
+# Intentionally invalid test fixtures
+**/testdata/malformed.yml

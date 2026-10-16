@@ -96,7 +96,7 @@ These files contain essential information about:
    make build
 
    # Test the binary
-   ./godo --help
+   ./docs --help
    ```
 
 5. **Commit Your Changes**
