@@ -6,4 +6,4 @@ export const sidebar = [
       { label: "delta", link: "https://github.com/o/delta" },
     ],
   },
-],
+];

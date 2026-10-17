@@ -60,7 +60,7 @@ func formatFromExt(path string) string {
 		return "json"
 	case ".html":
 		return "html"
-	case ".msj":
+	case ".mjs":
 		return "sidebar"
 	}
 	return ""
@@ -73,7 +73,7 @@ func extForFormat(format string) string {
 	case "html":
 		return ".html"
 	case "sidebar":
-		return ".msj"
+		return ".mjs"
 	}
 	return ".yml"
 }
@@ -145,7 +145,7 @@ func (c Config) Validate() error {
 		return fmt.Errorf("invalid visibility %q: must be public, private or internal", c.Visibility)
 	}
 	if c.File != "" && formatFromExt(c.File) == "" {
-		return fmt.Errorf("invalid file extension %q: must be .yml, .yaml, .json, .html or .msj", filepath.Ext(c.File))
+		return fmt.Errorf("invalid file extension %q: must be .yml, .yaml, .json, .html or .mjs", filepath.Ext(c.File))
 	}
 	switch c.Format {
 	case "yaml", "json", "html", "sidebar":
@@ -231,7 +231,7 @@ func renderSidebar(repos []Repo) ([]byte, error) {
 		out.Write(link)
 		out.WriteString(" },\n")
 	}
-	out.WriteString("    ],\n  },\n],\n")
+	out.WriteString("    ],\n  },\n];\n")
 	return []byte(out.String()), nil
 }
 

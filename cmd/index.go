@@ -44,7 +44,7 @@ Config keys, under an "index" node: owner, visibility, topic, format, file, limi
 	f.StringVarP(&flags.Visibility, "visibility", "v", "", "Repository visibility: public, internal or private")
 	f.StringVarP(&flags.Topic, "topic", "t", "", "Repository topic to filter on")
 	f.StringVarP(&flags.Format, "format", "F", "", "Output format: yaml, json, html or sidebar (not valid with --file)")
-	f.StringVarP(&flags.File, "file", "f", "", "Output file path (.yml, .yaml, .json, .html or .msj); extension sets the format")
+	f.StringVarP(&flags.File, "file", "f", "", "Output file path (.yml, .yaml, .json, .html or .mjs); extension sets the format")
 	f.IntVarP(&flags.Limit, "limit", "l", 0, "Maximum number of repositories to fetch")
 	c.MarkFlagsMutuallyExclusive("file", "format")
 	return c
