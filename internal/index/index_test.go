@@ -139,6 +139,7 @@ func TestValidate(t *testing.T) {
 	}{
 		{"valid", ok, true},
 		{"valid html file", with(func(c *Config) { c.Format, c.File = "html", "x.html" }), true},
+		{"valid sidebar file", with(func(c *Config) { c.Format, c.File = "sidebar", "x.msj" }), true},
 		{"missing owner", with(func(c *Config) { c.Owner = "" }), false},
 		{"bad visibility", with(func(c *Config) { c.Visibility = "secret" }), false},
 		{"bad format", with(func(c *Config) { c.Format = "xml" }), false},
@@ -157,7 +158,7 @@ func TestValidate(t *testing.T) {
 func TestRunGolden(t *testing.T) {
 	testutil.FakeGH(t, testutil.ReposFixture(), 0)
 
-	for _, name := range []string{"index.yml", "index.yaml", "index.json", "index.html"} {
+	for _, name := range []string{"index.yml", "index.yaml", "index.json", "index.html", "index.msj"} {
 		t.Run(name, func(t *testing.T) {
 			out := filepath.Join(t.TempDir(), "nested", "dir", name)
 			cfg := Merge(Config{}, Config{Owner: "o", File: out})

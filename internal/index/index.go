@@ -31,6 +31,7 @@ type Repo struct {
 	Name        string `yaml:"name" json:"name"`
 	Description string `yaml:"description" json:"description"`
 	HomepageURL string `yaml:"homepageUrl" json:"homepageUrl"`
+	SidebarURL  string `yaml:"-" json:"-"`
 }
 
 type ghRepo struct {
@@ -59,6 +60,8 @@ func formatFromExt(path string) string {
 		return "json"
 	case ".html":
 		return "html"
+	case ".msj":
+		return "sidebar"
 	}
 	return ""
 }
@@ -69,6 +72,8 @@ func extForFormat(format string) string {
 		return ".json"
 	case "html":
 		return ".html"
+	case "sidebar":
+		return ".msj"
 	}
 	return ".yml"
 }
@@ -140,12 +145,12 @@ func (c Config) Validate() error {
 		return fmt.Errorf("invalid visibility %q: must be public, private or internal", c.Visibility)
 	}
 	if c.File != "" && formatFromExt(c.File) == "" {
-		return fmt.Errorf("invalid file extension %q: must be .yml, .yaml, .json or .html", filepath.Ext(c.File))
+		return fmt.Errorf("invalid file extension %q: must be .yml, .yaml, .json, .html or .msj", filepath.Ext(c.File))
 	}
 	switch c.Format {
-	case "yaml", "json", "html":
+	case "yaml", "json", "html", "sidebar":
 	default:
-		return fmt.Errorf("invalid format %q: must be yaml, json or html", c.Format)
+		return fmt.Errorf("invalid format %q: must be yaml, json, html or sidebar", c.Format)
 	}
 	return nil
 }
@@ -175,7 +180,11 @@ func Collect(cfg Config) ([]Repo, error) {
 	for _, r := range repos {
 		for _, t := range r.RepositoryTopics {
 			if strings.EqualFold(t.Name, cfg.Topic) {
-				result = append(result, Repo{Name: r.Name, Description: r.Description, HomepageURL: r.HomepageURL})
+				link := r.HomepageURL
+				if link == "" {
+					link = fmt.Sprintf("https://github.com/%s/%s", cfg.Owner, r.Name)
+				}
+				result = append(result, Repo{Name: r.Name, Description: r.Description, HomepageURL: r.HomepageURL, SidebarURL: link})
 				break
 			}
 		}
@@ -200,8 +209,37 @@ var htmlTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
 </html>
 `))
 
+func renderSidebar(repos []Repo) ([]byte, error) {
+	var out strings.Builder
+	out.WriteString("export const sidebar = [\n  {\n    label: \"Documentation\",\n    items: [\n")
+	for _, repo := range repos {
+		label, err := json.Marshal(repo.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode sidebar label: %w", err)
+		}
+		linkValue := repo.SidebarURL
+		if linkValue == "" {
+			linkValue = repo.HomepageURL
+		}
+		link, err := json.Marshal(linkValue)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode sidebar link: %w", err)
+		}
+		out.WriteString("      { label: ")
+		out.Write(label)
+		out.WriteString(", link: ")
+		out.Write(link)
+		out.WriteString(" },\n")
+	}
+	out.WriteString("    ],\n  },\n],\n")
+	return []byte(out.String()), nil
+}
+
 // Render serializes repos in the given format.
 func Render(repos []Repo, format string) ([]byte, error) {
+	if format == "sidebar" {
+		return renderSidebar(repos)
+	}
 	if format == "html" {
 		var buf bytes.Buffer
 		if err := htmlTmpl.Execute(&buf, repos); err != nil {
