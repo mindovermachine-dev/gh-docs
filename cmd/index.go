@@ -17,7 +17,7 @@ func newIndexCmd() *cobra.Command {
 		Use:   "index",
 		Short: "Generate an index of documentation repositories",
 		Long: `List repositories of a user/organization that carry a given topic and
-write their name, description and homepage URL to a YAML, JSON or HTML file.
+write their name, description and homepage URL to a YAML, JSON, HTML or Starlight sidebar file.
 
 With --file the extension decides the format; --file and --format are mutually
 exclusive. Missing parent directories are created.
@@ -43,8 +43,8 @@ Config keys, under an "index" node: owner, visibility, topic, format, file, limi
 	f.StringVarP(&flags.Owner, "owner", "o", "", "User or organization to list repositories for")
 	f.StringVarP(&flags.Visibility, "visibility", "v", "", "Repository visibility: public, internal or private")
 	f.StringVarP(&flags.Topic, "topic", "t", "", "Repository topic to filter on")
-	f.StringVarP(&flags.Format, "format", "F", "", "Output format: yaml, json or html (not valid with --file)")
-	f.StringVarP(&flags.File, "file", "f", "", "Output file path (.yml, .yaml, .json or .html); extension sets the format")
+	f.StringVarP(&flags.Format, "format", "F", "", "Output format: yaml, json, html or sidebar (not valid with --file)")
+	f.StringVarP(&flags.File, "file", "f", "", "Output file path (.yml, .yaml, .json, .html or .mjs); extension sets the format")
 	f.IntVarP(&flags.Limit, "limit", "l", 0, "Maximum number of repositories to fetch")
 	c.MarkFlagsMutuallyExclusive("file", "format")
 	return c

@@ -1,5 +1,10 @@
 {
   "name": "gh-docs",
+  "scripts": {
+    "docs:dev": "remote-astro-theme dev --host 0.0.0.0",
+    "docs:build": "remote-astro-theme build",
+    "docs:preview": "remote-astro-theme preview --host 0.0.0.0"
+  },
   "devDependencies": {
     "@mindovermachine-dev/remote-astro-theme": "^0.1.0",
     "cspell": "^10.4.0",
