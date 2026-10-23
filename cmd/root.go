@@ -11,10 +11,10 @@ func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "docs",
 		Short: "GitHub utilities extension",
-		Long: `A collection of utilities for helping and automating the documentations pages.`,
+		Long:  `A collection of utilities for helping and automating the documentations pages.`,
 	}
 	root.CompletionOptions.HiddenDefaultCmd = true
-	root.AddCommand(newIndexCmd(), newTemplateCmd())
+	root.AddCommand(newIndexCmd(), newTemplateCmd(), newVersionCmd())
 	return root
 }
 

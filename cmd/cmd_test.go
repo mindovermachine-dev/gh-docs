@@ -111,12 +111,63 @@ func TestTemplateCommand(t *testing.T) {
 	}
 }
 
+func TestVersionCommand(t *testing.T) {
+	for _, k := range []string{"BUILD_REPO", "BUILD_REF", "BUILD_SHA", "GITHUB_REF_NAME", "GITHUB_SHA", "GITHUB_SERVER_URL", "GITHUB_REPOSITORY"} {
+		t.Setenv(k, "")
+	}
+	t.Setenv("GITHUB_SERVER_URL", "https://github.com")
+	t.Setenv("GITHUB_REPOSITORY", "acme/site")
+	t.Setenv("GITHUB_REF_NAME", "main")
+	t.Setenv("GITHUB_SHA", "abc123")
+
+	dir := t.TempDir()
+	cfg := testutil.WriteFile(t, dir, "cfg.yml", "version:\n  file: "+filepath.Join(dir, "from-config", "v.txt")+"\n")
+	want := "Build from https://github.com/acme/site\nRef: main\nCommit: abc123\n"
+
+	t.Run("config supplies file", func(t *testing.T) {
+		stdout, err := run(t, "version", "-c", cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(stdout, "Wrote ") {
+			t.Errorf("stdout = %q", stdout)
+		}
+		b, err := os.ReadFile(filepath.Join(dir, "from-config", "v.txt"))
+		if err != nil || string(b) != want {
+			t.Errorf("got %q, %v", b, err)
+		}
+	})
+
+	t.Run("flag overrides config", func(t *testing.T) {
+		out := filepath.Join(dir, "flag", "v.txt")
+		if _, err := run(t, "version", "-c", cfg, "-f", out); err != nil {
+			t.Fatal(err)
+		}
+		if b, err := os.ReadFile(out); err != nil || string(b) != want {
+			t.Errorf("got %q, %v", b, err)
+		}
+	})
+
+	t.Run("default path", func(t *testing.T) {
+		testutil.Chdir(t, t.TempDir())
+		if _, err := run(t, "version", "-c", filepath.Join(dir, "none.yml")); err == nil {
+			t.Fatal("explicit missing config must fail")
+		}
+		if _, err := run(t, "version"); err != nil {
+			t.Fatal(err)
+		}
+		if b, err := os.ReadFile(filepath.Join("dist", "version.txt")); err != nil || string(b) != want {
+			t.Errorf("got %q, %v", b, err)
+		}
+	})
+}
+
 func TestRootHelpListsSubcommands(t *testing.T) {
 	out, err := run(t, "--help")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"index", "template"} {
+	for _, want := range []string{"index", "template", "version"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("help lacks %q", want)
 		}

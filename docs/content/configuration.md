@@ -15,6 +15,9 @@ index:
 
 template:
   output: docs
+
+version:
+  file: dist/version.txt
 ```
 
 ## `index` settings
@@ -35,6 +38,12 @@ Do not set both `index.file` and `index.format`; the configuration is rejected. 
 | Key      | Default | Description                                 |
 | -------- | ------- | ------------------------------------------- |
 | `output` | `docs`  | Folder where the template files are copied. |
+
+## `version` settings
+
+| Key    | Default            | Description                      |
+| ------ | ------------------ | -------------------------------- |
+| `file` | `dist/version.txt` | Output path of the version file. |
 
 ## Precedence and config paths
 
