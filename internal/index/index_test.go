@@ -226,6 +226,22 @@ func TestRunSidebarFormatUsesPairedDefaults(t *testing.T) {
 	}
 }
 
+func TestRunSidebarCreatesPagesDirectoryWithNoMatches(t *testing.T) {
+	testutil.FakeGH(t, testutil.ReposFixture(), 0)
+	dir := t.TempDir()
+	pagesDir := filepath.Join(dir, "pages")
+	cfg := Merge(Config{}, Config{
+		Owner: "o", Topic: "no-matches", Format: "sidebar",
+		File: filepath.Join(dir, "sidebar.mjs"), PagesDir: pagesDir,
+	})
+	if _, err := Run(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Stat(pagesDir); err != nil || !info.IsDir() {
+		t.Fatalf("pages directory was not created: %v", err)
+	}
+}
+
 func TestRunSidebarGeneratesPagesAndLocalSidebar(t *testing.T) {
 	testutil.FakeGH(t, testutil.ReposFixture(), 0)
 	dir := t.TempDir()

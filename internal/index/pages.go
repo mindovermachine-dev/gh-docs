@@ -177,6 +177,9 @@ func writePagesAndSidebar(cfg Config, repos []Repo, tmpl *template.Template) (st
 	if err != nil {
 		return "", err
 	}
+	if err := os.MkdirAll(pagesDir, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create pages directory %s: %w", pagesDir, err)
+	}
 	for _, p := range pages {
 		if err := os.MkdirAll(filepath.Dir(p.path), 0o755); err != nil {
 			return "", fmt.Errorf("failed to create directory for %s: %w", p.path, err)
