@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	texttemplate "text/template"
 
 	"github.com/mindovermachine-dev/gh-docs/internal/config"
 	"gopkg.in/yaml.v3"
@@ -335,7 +334,7 @@ func Run(cfg Config) (string, error) {
 	if err := cfg.Validate(); err != nil {
 		return "", err
 	}
-	var pageTemplate *texttemplate.Template
+	var pageTemplate pageTemplate
 	if cfg.Format == "sidebar" {
 		var err error
 		pageTemplate, err = loadPageTemplate()

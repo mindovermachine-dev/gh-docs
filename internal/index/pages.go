@@ -27,6 +27,13 @@ var safeName = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 var stableVersion = regexp.MustCompile(`^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$`)
 
 const defaultPageTemplate = "docs/repository-template.md"
+const defaultMDXPageTemplate = "docs/repository-template.mdx"
+
+type pageTemplate struct {
+	template  *template.Template
+	path      string
+	extension string
+}
 
 func runGH(args ...string) ([]byte, error) {
 	return exec.Command("gh", args...).Output()
@@ -69,24 +76,33 @@ func pageURL(pagesDir, baseURL, repoSlug string) string {
 	return "/" + base + "/" + repoSlug + "/"
 }
 
-func loadPageTemplate() (*template.Template, error) {
-	source, err := os.ReadFile(defaultPageTemplate)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("template %s is missing; create it with `gh docs template --starlight --output docs`", defaultPageTemplate)
+func loadPageTemplate() (pageTemplate, error) {
+	templatePath := ""
+	for _, candidate := range []string{defaultPageTemplate, defaultMDXPageTemplate} {
+		if _, err := os.Stat(candidate); err == nil {
+			templatePath = candidate
+			break
+		} else if !os.IsNotExist(err) {
+			return pageTemplate{}, fmt.Errorf("failed to inspect template %s: %w", candidate, err)
 		}
-		return nil, fmt.Errorf("failed to read template %s: %w", defaultPageTemplate, err)
 	}
-	tmpl, err := template.New(defaultPageTemplate).Delims("[%", "%]").Funcs(template.FuncMap{
+	if templatePath == "" {
+		return pageTemplate{}, fmt.Errorf("template %s or %s is missing; create one with `gh docs template --starlight --output docs`", defaultPageTemplate, defaultMDXPageTemplate)
+	}
+	source, err := os.ReadFile(templatePath)
+	if err != nil {
+		return pageTemplate{}, fmt.Errorf("failed to read template %s: %w", templatePath, err)
+	}
+	tmpl, err := template.New(templatePath).Delims("[%", "%]").Funcs(template.FuncMap{
 		"yaml": func(value any) (string, error) {
 			data, err := yaml.Marshal(value)
 			return strings.TrimSuffix(string(data), "\n"), err
 		},
 	}).Parse(string(source))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse template %s: %w", defaultPageTemplate, err)
+		return pageTemplate{}, fmt.Errorf("failed to parse template %s: %w", templatePath, err)
 	}
-	return tmpl, nil
+	return pageTemplate{template: tmpl, path: templatePath, extension: filepath.Ext(templatePath)}, nil
 }
 
 func scaffoldStarlight(destination string, force bool) error {
@@ -125,7 +141,7 @@ func scaffoldStarlight(destination string, force bool) error {
 	return nil
 }
 
-func writePagesAndSidebar(cfg Config, repos []Repo, tmpl *template.Template) (string, error) {
+func writePagesAndSidebar(cfg Config, repos []Repo, tmpl pageTemplate) (string, error) {
 	var err error
 	pagesDir, err := filepath.Abs(cfg.PagesDir)
 	if err != nil {
@@ -147,7 +163,7 @@ func writePagesAndSidebar(cfg Config, repos []Repo, tmpl *template.Template) (st
 			return "", fmt.Errorf("repositories %q and %q produce the same page slug %q", previous, repo.Name, repo.Slug)
 		}
 		seen[repo.Slug] = repo.Name
-		target := filepath.Join(pagesDir, repo.Slug+".md")
+		target := filepath.Join(pagesDir, repo.Slug+tmpl.extension)
 		relative, err := filepath.Rel(pagesDir, target)
 		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 			return "", fmt.Errorf("page path for repository %q escapes pages directory", repo.Name)
@@ -159,8 +175,8 @@ func writePagesAndSidebar(cfg Config, repos []Repo, tmpl *template.Template) (st
 		}
 		repo.SidebarURL = pageURL(cfg.PagesDir, cfg.BaseURL, repo.Slug)
 		var rendered bytes.Buffer
-		if err := tmpl.Execute(&rendered, *repo); err != nil {
-			return "", fmt.Errorf("failed to render template %s for repository %s: %w", defaultPageTemplate, repo.Name, err)
+		if err := tmpl.template.Execute(&rendered, *repo); err != nil {
+			return "", fmt.Errorf("failed to render template %s for repository %s: %w", tmpl.path, repo.Name, err)
 		}
 		pages = append(pages, page{path: target, data: rendered.Bytes()})
 	}

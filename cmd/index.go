@@ -18,7 +18,7 @@ func newIndexCmd() *cobra.Command {
 		Short: "Generate an index of documentation repositories",
 		Long: `List repositories of a user/organization that carry a given topic and
 write their name, description and homepage URL to a YAML, JSON or HTML file.
-The sidebar format writes repository pages from a Markdown template and a paired
+The sidebar format writes repository pages from a Markdown or MDX template and a paired
 Starlight sidebar module.
 
 With --file the extension decides the format; --file and --format are mutually
@@ -26,7 +26,7 @@ exclusive. Missing parent directories are created.
 
 Precedence: flags > config file (.docs.yml) > built-in fallbacks.
 Config keys, under an "index" node: owner, visibility, topic, format, file, pages-dir, base-url, badge-url, limit.
-Sidebar mode requires the user-authored docs/repository-template.md file; see "gh docs template".`,
+Sidebar mode requires docs/repository-template.md or docs/repository-template.mdx; .md takes precedence when both exist. See "gh docs template".`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := index.LoadConfig(configFile, cmd.Flags().Changed("config"))
 			if err != nil {
@@ -52,7 +52,7 @@ Sidebar mode requires the user-authored docs/repository-template.md file; see "g
 	f.StringVarP(&flags.Topic, "topic", "t", "", "Repository topic to filter on")
 	f.StringVarP(&flags.Format, "format", "F", "", "Output format: yaml, json, html or sidebar (not valid with --file)")
 	f.StringVarP(&flags.File, "file", "f", "", "Output file path (.yml, .yaml, .json, .html or .mjs); extension sets the format")
-	f.StringVar(&flags.PagesDir, "pages-dir", "", "Directory for generated Markdown repository pages (sidebar format)")
+	f.StringVar(&flags.PagesDir, "pages-dir", "", "Directory for generated Markdown or MDX repository pages (sidebar format)")
 	f.StringVar(&flags.BaseURL, "base-url", "", "Base URL for generated local sidebar links")
 	f.StringVar(&flags.BadgeURL, "badge-url", "", "Optional status badge URL for repository page templates")
 	f.IntVarP(&flags.Limit, "limit", "l", 0, "Maximum number of repositories to fetch")

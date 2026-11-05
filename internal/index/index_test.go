@@ -253,6 +253,26 @@ func TestRunSidebarFormatUsesPairedDefaults(t *testing.T) {
 	}
 }
 
+func TestRunSidebarPageExtensionMatchesTemplate(t *testing.T) {
+	for _, extension := range []string{".md", ".mdx"} {
+		t.Run(extension, func(t *testing.T) {
+			testutil.FakeGH(t, testutil.ReposFixture(), 0)
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			testutil.WriteFile(t, dir, filepath.Join("docs", "repository-template"+extension), "# [% .Name %]\n")
+
+			cfg := Merge(Config{}, Config{Owner: "o", Format: "sidebar"})
+			if _, err := Run(cfg); err != nil {
+				t.Fatal(err)
+			}
+			pagePath := filepath.Join(cfg.PagesDir, "alpha"+extension)
+			if _, err := os.Stat(pagePath); err != nil {
+				t.Fatalf("generated page %s: %v", pagePath, err)
+			}
+		})
+	}
+}
+
 func TestRunSidebarCreatesPagesDirectoryWithNoMatches(t *testing.T) {
 	testutil.FakeGH(t, testutil.ReposFixture(), 0)
 	dir := t.TempDir()

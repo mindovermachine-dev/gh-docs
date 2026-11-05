@@ -1,9 +1,9 @@
 ---
 title: Starlight sidebar and page templates
-description: Generate repository pages from Markdown templates and link them in a Starlight sidebar.
+description: Generate repository pages from Markdown or MDX templates and link them in a Starlight sidebar.
 ---
 
-YAML, JSON, and HTML formats write one data or index file. `sidebar` mode writes a Markdown page for every matching repository plus an ES module containing the Starlight sidebar entries. Use `--format sidebar` or a `.mjs` output path:
+YAML, JSON, and HTML formats write one data or index file. `sidebar` mode writes a Markdown or MDX page for every matching repository plus an ES module containing the Starlight sidebar entries. Use `--format sidebar` or a `.mjs` output path:
 
 ```sh
 gh docs index --owner mindovermachine-dev \
@@ -11,7 +11,7 @@ gh docs index --owner mindovermachine-dev \
   --pages-dir astro/src/content/docs/repositories
 ```
 
-Sidebar mode requires `docs/repository-template.md`; it does not use an embedded fallback. Create the standalone Markdown file from the maintained starter source without contacting GitHub:
+Sidebar mode requires `docs/repository-template.md` or `docs/repository-template.mdx`; it does not use an embedded fallback. If both exist, `.md` is preferred. Generated pages use the same extension as the selected template. Create the standalone Markdown starter from the maintained source without contacting GitHub:
 
 ```sh
 gh docs template --starlight --output docs

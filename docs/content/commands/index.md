@@ -3,7 +3,7 @@ title: index
 description: Export repository data or generate repository pages and a Starlight sidebar.
 ---
 
-**`gh docs index` lists repositories owned by a GitHub user or organization and filters them by repository topic. YAML, JSON, and HTML produce a single-file export; sidebar mode produces one Markdown page per repository and a Starlight sidebar module.**
+**`gh docs index` lists repositories owned by a GitHub user or organization and filters them by repository topic. YAML, JSON, and HTML produce a single-file export; sidebar mode produces one Markdown or MDX page per repository and a Starlight sidebar module.**
 
 ## Usage
 
@@ -23,12 +23,12 @@ The owner can be set in `.docs.yml` instead of passed as a flag. The command inv
 | `-t`, `--topic`      | `documentation`     | Repository topic to match. Matching is case-insensitive.                                         |
 | `-F`, `--format`     | `yaml`              | Output format: `yaml`, `json`, `html`, or `sidebar`. Cannot be used with `--file`.               |
 | `-f`, `--file`       | `docs-repos.yml`    | Output path. `.mjs` selects paired sidebar/page generation.                                      |
-| `--pages-dir`        | `docs/content/repo` | Directory for generated Markdown pages in sidebar mode.                                          |
+| `--pages-dir`        | `docs/content/repo` | Directory for generated Markdown or MDX pages in sidebar mode.                                   |
 | `--base-url`         | Inferred            | URL prefix for local sidebar links when the filesystem layout does not determine the site route. |
 | `--badge-url`        | None                | Optional status badge URL exposed to the page template.                                          |
 | `-l`, `--limit`      | `1000`              | Maximum number of repositories returned by `gh repo list`.                                       |
 
-Supported output extensions are `.yml`, `.yaml`, `.json`, `.html`, and `.mjs`. YAML, JSON, and HTML are single-file exports. The `.mjs` extension selects the paired sidebar/pages format.
+Supported index output extensions are `.yml`, `.yaml`, `.json`, `.html`, and `.mjs`. YAML, JSON, and HTML are single-file exports. The `.mjs` extension selects the paired sidebar/pages format. Page templates are read from `docs/repository-template.md` or `docs/repository-template.mdx`; `.md` is preferred if both exist, and generated pages use the selected template's extension.
 
 ## formats
 
@@ -97,7 +97,7 @@ gh docs index --owner mindovermachine-dev --file docs/sidebar/repositories.mjs \
 
 The generated module exports one `Documentation` group with `{ label, link }` items. Links point to the pages generated in the same invocation, not to GitHub or repository homepage URLs. For the default `docs/content/repo` directory the inferred route is `/repo/<slug>/`; for a path under `src/content/docs`, the route is inferred relative to `docs`. Use `--base-url` when you need to specify a route explicitly. Missing directories are created and generated pages are overwritten. Pages for repositories no longer selected are not deleted and must be cleaned up manually.
 
-Sidebar mode reads `docs/repository-template.md`. Create it with `gh docs template --starlight --output docs`; edit the copied file, then run `gh docs index --format sidebar` again.
+Sidebar mode reads `docs/repository-template.md` or `docs/repository-template.mdx`. If both exist, it uses `.md`. Generated pages keep the selected template's extension. Create the default `.md` template with `gh docs template --starlight --output docs`; edit or rename it to `.mdx` as needed, then run `gh docs index --format sidebar` again.
 
 See [Starlight sidebar and page templates](../output-formats/starlight-sidebar.md) for template keywords, delimiters, configuration, and site imports.
 
