@@ -43,7 +43,9 @@ Config keys, under a "template" node: output.`,
 				if err := index.StarlightTemplate(destination, force); err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "Wrote %s\n", destination)
+				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Wrote %s\n", destination); err != nil {
+					return err
+				}
 				return nil
 			}
 			paths, err := template.Jekyll(merged, force)

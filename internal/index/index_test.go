@@ -173,12 +173,7 @@ func TestRunGolden(t *testing.T) {
 			cfg.BaseURL = "/repo"
 			if name == "index.mjs" {
 				testutil.Chdir(t, dir)
-				if err := os.MkdirAll("docs", 0o755); err != nil {
-					t.Fatal(err)
-				}
-				if err := os.WriteFile(filepath.Join("docs", "repository-template.md"), []byte("# [% .Name %]\n"), 0o644); err != nil {
-					t.Fatal(err)
-				}
+				testutil.WriteFile(t, dir, filepath.Join("docs", "repository-template.md"), "# [% .Name %]\n")
 			}
 			path, err := Run(cfg)
 			if err != nil {
@@ -262,12 +257,7 @@ func TestRunSidebarCreatesPagesDirectoryWithNoMatches(t *testing.T) {
 	testutil.FakeGH(t, testutil.ReposFixture(), 0)
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
-	if err := os.MkdirAll("docs", 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join("docs", "repository-template.md"), []byte("# Repositories\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	testutil.WriteFile(t, dir, filepath.Join("docs", "repository-template.md"), "# Repositories\n")
 	pagesDir := filepath.Join(dir, "pages")
 	cfg := Merge(Config{}, Config{
 		Owner: "o", Topic: "no-matches", Format: "sidebar",
@@ -331,6 +321,7 @@ func TestStarlightTemplate(t *testing.T) {
 	if err := StarlightTemplate(destination, false); err == nil {
 		t.Fatal("expected existing destination error")
 	}
+	// #nosec G304 -- destination is inside the temporary test directory.
 	afterRefusal, err := os.ReadFile(destination)
 	if err != nil {
 		t.Fatal(err)

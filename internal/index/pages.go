@@ -103,6 +103,7 @@ func scaffoldStarlight(destination string, force bool) error {
 		return fmt.Errorf("failed to create directory for %s: %w", destination, err)
 	}
 	if force {
+		// #nosec G306 -- Generated Markdown must be readable and non-executable.
 		if err := os.WriteFile(destination, source, 0o644); err != nil {
 			return fmt.Errorf("failed to write template %s: %w", destination, err)
 		}
