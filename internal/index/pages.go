@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -35,7 +36,7 @@ type pageTemplate struct {
 	extension string
 }
 
-func runGH(args ...string) ([]byte, error) {
+var runGH = func(args ...string) ([]byte, error) {
 	return exec.Command("gh", args...).Output()
 }
 
@@ -76,18 +77,25 @@ func pageURL(pagesDir, baseURL, repoSlug string) string {
 	return "/" + base + "/" + repoSlug + "/"
 }
 
-func loadPageTemplate() (pageTemplate, error) {
-	templatePath := ""
-	for _, candidate := range []string{defaultPageTemplate, defaultMDXPageTemplate} {
-		if _, err := os.Stat(candidate); err == nil {
-			templatePath = candidate
-			break
-		} else if !os.IsNotExist(err) {
-			return pageTemplate{}, fmt.Errorf("failed to inspect template %s: %w", candidate, err)
+func loadPageTemplate(templatePath string) (pageTemplate, error) {
+	if templatePath == "" {
+		for _, candidate := range []string{defaultPageTemplate, defaultMDXPageTemplate} {
+			if _, err := os.Stat(candidate); err == nil {
+				templatePath = candidate
+				break
+			} else if !os.IsNotExist(err) {
+				return pageTemplate{}, fmt.Errorf("failed to inspect template %s: %w", candidate, err)
+			}
 		}
 	}
 	if templatePath == "" {
 		return pageTemplate{}, fmt.Errorf("template %s or %s is missing; create one with `gh docs template --starlight --output docs`", defaultPageTemplate, defaultMDXPageTemplate)
+	}
+	extension := filepath.Ext(templatePath)
+	switch strings.ToLower(extension) {
+	case ".md", ".mdx":
+	default:
+		return pageTemplate{}, fmt.Errorf("invalid template extension %q: must be .md or .mdx", extension)
 	}
 	source, err := os.ReadFile(templatePath)
 	if err != nil {
@@ -102,7 +110,7 @@ func loadPageTemplate() (pageTemplate, error) {
 	if err != nil {
 		return pageTemplate{}, fmt.Errorf("failed to parse template %s: %w", templatePath, err)
 	}
-	return pageTemplate{template: tmpl, path: templatePath, extension: filepath.Ext(templatePath)}, nil
+	return pageTemplate{template: tmpl, path: templatePath, extension: extension}, nil
 }
 
 func scaffoldStarlight(destination string, force bool) error {
@@ -266,6 +274,8 @@ func collectRepoMetadata(owner string, repo *Repo) {
 		}
 	}
 
+	collectRepoWorkflows(owner, repo)
+
 	tagsData, err := runGH("api", endpoint+"/tags?per_page=100")
 	if err != nil {
 		log.Printf("warning: failed to fetch tags for %s/%s: %v", owner, repo.Name, err)
@@ -279,6 +289,22 @@ func collectRepoMetadata(owner string, repo *Repo) {
 		return
 	}
 	repo.LatestVersion = highestStableVersion(tags)
+}
+
+func collectRepoWorkflows(owner string, repo *Repo) {
+	repo.Workflows = make(map[string]bool)
+	endpoint := "repos/" + owner + "/" + repo.Name + "/actions/workflows"
+	data, err := runGH("api", "--paginate", "--jq", `.workflows[] | select(.state == "active") | .path`, endpoint)
+	if err != nil {
+		log.Printf("warning: failed to fetch workflows for %s/%s: %v", owner, repo.Name, err)
+		return
+	}
+	for _, workflowPath := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		if workflowPath == "" {
+			continue
+		}
+		repo.Workflows[path.Base(workflowPath)] = true
+	}
 }
 
 func highestStableVersion(tags []struct {

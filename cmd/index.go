@@ -25,7 +25,7 @@ With --file the extension decides the format; --file and --format are mutually
 exclusive. Missing parent directories are created.
 
 Precedence: flags > config file (.docs.yml) > built-in fallbacks.
-Config keys, under an "index" node: owner, visibility, topic, format, file, pages-dir, base-url, badge-url, limit.
+Config keys, under an "index" node: owner, visibility, topic, format, file, pages-dir, template, base-url, limit.
 Sidebar mode requires docs/repository-template.md or docs/repository-template.mdx; .md takes precedence when both exist. See "gh docs template".`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := index.LoadConfig(configFile, cmd.Flags().Changed("config"))
@@ -53,8 +53,8 @@ Sidebar mode requires docs/repository-template.md or docs/repository-template.md
 	f.StringVarP(&flags.Format, "format", "F", "", "Output format: yaml, json, html or sidebar (not valid with --file)")
 	f.StringVarP(&flags.File, "file", "f", "", "Output file path (.yml, .yaml, .json, .html or .mjs); extension sets the format")
 	f.StringVar(&flags.PagesDir, "pages-dir", "", "Directory for generated Markdown or MDX repository pages (sidebar format)")
+	f.StringVar(&flags.Template, "template", "", "Path to a Markdown or MDX page template (sidebar format)")
 	f.StringVar(&flags.BaseURL, "base-url", "", "Base URL for generated local sidebar links")
-	f.StringVar(&flags.BadgeURL, "badge-url", "", "Optional status badge URL for repository page templates")
 	f.IntVarP(&flags.Limit, "limit", "l", 0, "Maximum number of repositories to fetch")
 	c.MarkFlagsMutuallyExclusive("file", "format")
 	return c

@@ -1,30 +1,7 @@
 ---
 title: [% .Title | yaml %]
 description: [% .Description | yaml %]
-tableOfContents: false
-hero:
-  tagline: Index of reference documentation for the products stewarded by Mind over Machine.
-  actions:
-    - text: Documentation
-      link: [% .HomepageURL %]
-      icon: right-arrow
-    - text: Github repository
-      link: [% .RepoURL %]
-      icon: right-arrow
-      variant: minimal
 ---
-
-[% if .HomepageURL %]
-
-> [📚 **Documentation**](<[% .HomepageURL %]>) · [💻 **GitHub repository**](<[% .RepoURL %]>)
-> [% else %]
-> [💻 **GitHub repository**](<[% .RepoURL %]>)
-> [% end %]
-
-[% if .BadgeURL %]
-
-<img src="[% .BadgeURL %]" alt="Build status">
-[% end %]
 
 ## [% .Title %]
 

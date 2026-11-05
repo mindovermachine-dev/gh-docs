@@ -58,6 +58,19 @@ func TestIndexCommand(t *testing.T) {
 		}
 	})
 
+	t.Run("custom sidebar template flag", func(t *testing.T) {
+		dir := t.TempDir()
+		testutil.Chdir(t, dir)
+		templatePath := testutil.WriteFile(t, dir, filepath.Join("templates", "repo.mdx"), "# [% .Name %]\n")
+		pagesDir := filepath.Join(dir, "sample", "content", "repo")
+		if _, err := run(t, "index", "--owner", "acme", "--format", "sidebar", "--template", templatePath, "--pages-dir", pagesDir); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(pagesDir, "alpha.mdx")); err != nil {
+			t.Fatalf("generated MDX page: %v", err)
+		}
+	})
+
 	t.Run("file and format are mutually exclusive", func(t *testing.T) {
 		if _, err := run(t, "index", "-c", cfg, "--file", "x.json", "--format", "json"); err == nil {
 			t.Error("expected error")
@@ -114,10 +127,13 @@ func TestIndexRequiresScaffoldedTemplateAndHidesScaffoldFlags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, removed := range []string{"--template", "--starlight"} {
+	for _, removed := range []string{"--starlight"} {
 		if strings.Contains(out, removed) {
 			t.Errorf("index help still advertises %s", removed)
 		}
+	}
+	if !strings.Contains(out, "--template") {
+		t.Error("index help does not advertise --template")
 	}
 }
 

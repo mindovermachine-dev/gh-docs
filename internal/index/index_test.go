@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"text/template"
 
 	"github.com/mindovermachine-dev/gh-docs/internal/testutil"
 )
@@ -77,7 +78,7 @@ func TestLoadConfig(t *testing.T) {
 		wantErr  bool
 	}{
 		{"index node", "index:\n  owner: acme\n  topic: docs\n  limit: 5\n", true, Config{Owner: "acme", Topic: "docs", Limit: 5}, false},
-		{"page settings", "index:\n  pages-dir: site/docs/repositories\n  base-url: /repositories\n", true, Config{PagesDir: "site/docs/repositories", BaseURL: "/repositories"}, false},
+		{"page settings", "index:\n  pages-dir: site/docs/repositories\n  template: templates/page.mdx\n  base-url: /repositories\n", true, Config{PagesDir: "site/docs/repositories", Template: "templates/page.mdx", BaseURL: "/repositories"}, false},
 		{"other nodes ignored", "template:\n  output: x\n", true, Config{}, false},
 		{"missing optional", "", false, Config{}, false},
 		{"missing required", "", true, Config{}, true},
@@ -142,6 +143,8 @@ func TestValidate(t *testing.T) {
 		{"valid", ok, true},
 		{"valid html file", with(func(c *Config) { c.Format, c.File = "html", "x.html" }), true},
 		{"valid sidebar file", with(func(c *Config) { c.Format, c.File = "sidebar", "x.mjs" }), true},
+		{"valid mdx template", with(func(c *Config) { c.Format, c.Template = "sidebar", "page.mdx" }), true},
+		{"bad template extension", with(func(c *Config) { c.Format, c.Template = "sidebar", "page.txt" }), false},
 		{"missing owner", with(func(c *Config) { c.Owner = "" }), false},
 		{"bad visibility", with(func(c *Config) { c.Visibility = "secret" }), false},
 		{"bad format", with(func(c *Config) { c.Format = "xml" }), false},
@@ -273,6 +276,28 @@ func TestRunSidebarPageExtensionMatchesTemplate(t *testing.T) {
 	}
 }
 
+func TestRunSidebarUsesCustomTemplateOutsideDocs(t *testing.T) {
+	testutil.FakeGH(t, testutil.ReposFixture(), 0)
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	templatePath := testutil.WriteFile(t, dir, filepath.Join("templates", "repository.mdx"), "# [% .Name %]\n")
+	cfg := Merge(Config{}, Config{
+		Owner: "o", Format: "sidebar", PagesDir: filepath.Join(dir, "sample", "content", "repo"),
+		Template: templatePath,
+	})
+	if _, err := Run(cfg); err != nil {
+		t.Fatal(err)
+	}
+	pagePath := filepath.Join(cfg.PagesDir, "alpha.mdx")
+	page, err := os.ReadFile(pagePath)
+	if err != nil {
+		t.Fatalf("generated MDX page %s: %v", pagePath, err)
+	}
+	if string(page) != "# alpha\n" {
+		t.Errorf("page = %q", page)
+	}
+}
+
 func TestRunSidebarCreatesPagesDirectoryWithNoMatches(t *testing.T) {
 	testutil.FakeGH(t, testutil.ReposFixture(), 0)
 	dir := t.TempDir()
@@ -388,7 +413,7 @@ func TestSlugCollisionsFailBeforeWriting(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	testutil.WriteFile(t, dir, filepath.Join("docs", "repository-template.md"), "# [% .Name %]\n")
-	tmpl, err := loadPageTemplate()
+	tmpl, err := loadPageTemplate("")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -414,12 +439,61 @@ func TestHighestStableVersion(t *testing.T) {
 	}
 }
 
+func TestCollectRepoWorkflows(t *testing.T) {
+	previousRunGH := runGH
+	runGH = func(args ...string) ([]byte, error) {
+		want := []string{"api", "--paginate", "--jq", `.workflows[] | select(.state == "active") | .path`, "repos/acme/widget/actions/workflows"}
+		if !reflect.DeepEqual(args, want) {
+			t.Errorf("gh args = %#v, want %#v", args, want)
+		}
+		return []byte(".github/workflows/release.yml\n.github/workflows/ci.yml\n"), nil
+	}
+	t.Cleanup(func() { runGH = previousRunGH })
+
+	repo := Repo{Name: "widget"}
+	collectRepoWorkflows("acme", &repo)
+	if !reflect.DeepEqual(repo.Workflows, map[string]bool{"release.yml": true, "ci.yml": true}) {
+		t.Errorf("workflows = %#v", repo.Workflows)
+	}
+}
+
+func TestWorkflowTemplateCondition(t *testing.T) {
+	tmpl, err := template.New("workflow").Delims("[%", "%]").Parse(`[% if index .Workflows "release.yml" %]release badge[% end %]`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		name      string
+		workflows map[string]bool
+		want      string
+	}{
+		{"workflow exists", map[string]bool{"release.yml": true}, "release badge"},
+		{"workflow missing", map[string]bool{"ci.yml": true}, ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var rendered strings.Builder
+			if err := tmpl.Execute(&rendered, Repo{Workflows: tt.workflows}); err != nil {
+				t.Fatal(err)
+			}
+			if rendered.String() != tt.want {
+				t.Errorf("rendered = %q, want %q", rendered.String(), tt.want)
+			}
+		})
+	}
+}
+
 func TestMergePageOptions(t *testing.T) {
-	base := Config{PagesDir: "configured/pages", BaseURL: "/configured", BadgeURL: "configured.svg"}
-	overrides := Config{PagesDir: "flag/pages", BaseURL: "/flag", BadgeURL: "flag.svg"}
+	base := Config{PagesDir: "configured/pages", BaseURL: "/configured"}
+	overrides := Config{PagesDir: "flag/pages", BaseURL: "/flag"}
 	got := Merge(base, overrides)
-	if got.PagesDir != "flag/pages" || got.BaseURL != "/flag" || got.BadgeURL != "flag.svg" {
+	if got.PagesDir != "flag/pages" || got.BaseURL != "/flag" {
 		t.Errorf("flag options did not override config: %+v", got)
+	}
+	base.Template = "configured/repository.md"
+	overrides.Template = "flag/repository.mdx"
+	got = Merge(base, overrides)
+	if got.Template != "flag/repository.mdx" {
+		t.Errorf("template flag did not override config: %+v", got)
 	}
 	got = Merge(Config{}, Config{})
 	if got.PagesDir != "docs/content/repo" {

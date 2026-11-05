@@ -1,6 +1,17 @@
 ---
 title: [% .Title | yaml %]
 description: [% .Description | yaml %]
+tableOfContents: false
+hero:
+  tagline: [% .Description | yaml %]
+  actions:
+    - text: Documentation
+      link: [% .HomepageURL %]
+      icon: right-arrow
+    - text: Github
+      link: [% .RepoURL %]
+      icon: right-arrow
+      variant: minimal
 ---
 
 [% if .HomepageURL %]
@@ -10,13 +21,13 @@ description: [% .Description | yaml %]
 > [💻 **GitHub repository**](<[% .RepoURL %]>)
 > [% end %]
 
-[% if .BadgeURL %]
-<img src="[% .BadgeURL %]" alt="Build status">
-[% end %]
-
 ## [% .Title %]
 
 [% .Description %]
+
+[% if index .Workflows "release.yml" %]
+[![Release]([% .RepoURL %]/actions/workflows/release.yml/badge.svg)]([% .RepoURL %]/actions/workflows/release.yml)
+[% end %]
 
 ## Repository
 

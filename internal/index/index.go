@@ -24,29 +24,29 @@ type Config struct {
 	Format     string `yaml:"format"`
 	File       string `yaml:"file"`
 	PagesDir   string `yaml:"pages-dir"`
+	Template   string `yaml:"template"`
 	BaseURL    string `yaml:"base-url"`
-	BadgeURL   string `yaml:"badge-url"`
 	Limit      int    `yaml:"limit"`
 }
 
 // Repo is a single entry in the generated index.
 type Repo struct {
-	Name          string       `yaml:"name" json:"name"`
-	Description   string       `yaml:"description" json:"description"`
-	HomepageURL   string       `yaml:"homepageUrl" json:"homepageUrl"`
-	Owner         string       `yaml:"-" json:"-"`
-	Title         string       `yaml:"-" json:"-"`
-	Slug          string       `yaml:"-" json:"-"`
-	RepoURL       string       `yaml:"-" json:"-"`
-	Topics        []string     `yaml:"-" json:"-"`
-	BadgeURL      string       `yaml:"-" json:"-"`
-	DefaultBranch string       `yaml:"-" json:"-"`
-	LatestCommit  LatestCommit `yaml:"-" json:"-"`
-	LatestVersion string       `yaml:"-" json:"-"`
-	Stars         int          `yaml:"-" json:"-"`
-	License       string       `yaml:"-" json:"-"`
-	UpdatedAt     string       `yaml:"-" json:"-"`
-	SidebarURL    string       `yaml:"-" json:"-"`
+	Name          string          `yaml:"name" json:"name"`
+	Description   string          `yaml:"description" json:"description"`
+	HomepageURL   string          `yaml:"homepageUrl" json:"homepageUrl"`
+	Owner         string          `yaml:"-" json:"-"`
+	Title         string          `yaml:"-" json:"-"`
+	Slug          string          `yaml:"-" json:"-"`
+	RepoURL       string          `yaml:"-" json:"-"`
+	Topics        []string        `yaml:"-" json:"-"`
+	Workflows     map[string]bool `yaml:"-" json:"-"`
+	DefaultBranch string          `yaml:"-" json:"-"`
+	LatestCommit  LatestCommit    `yaml:"-" json:"-"`
+	LatestVersion string          `yaml:"-" json:"-"`
+	Stars         int             `yaml:"-" json:"-"`
+	License       string          `yaml:"-" json:"-"`
+	UpdatedAt     string          `yaml:"-" json:"-"`
+	SidebarURL    string          `yaml:"-" json:"-"`
 }
 
 // LatestCommit contains metadata for a repository's default-branch head commit.
@@ -148,11 +148,11 @@ func Merge(base, overrides Config) Config {
 	if overrides.PagesDir != "" {
 		out.PagesDir = overrides.PagesDir
 	}
+	if overrides.Template != "" {
+		out.Template = overrides.Template
+	}
 	if overrides.BaseURL != "" {
 		out.BaseURL = overrides.BaseURL
-	}
-	if overrides.BadgeURL != "" {
-		out.BadgeURL = overrides.BadgeURL
 	}
 	if out.Visibility == "" {
 		out.Visibility = fallback.Visibility
@@ -195,6 +195,13 @@ func (c Config) Validate() error {
 	default:
 		return fmt.Errorf("invalid format %q: must be yaml, json, html or sidebar", c.Format)
 	}
+	if c.Format == "sidebar" && c.Template != "" {
+		switch strings.ToLower(filepath.Ext(c.Template)) {
+		case ".md", ".mdx":
+		default:
+			return fmt.Errorf("invalid template extension %q: must be .md or .mdx", filepath.Ext(c.Template))
+		}
+	}
 	return nil
 }
 
@@ -230,8 +237,7 @@ func Collect(cfg Config) ([]Repo, error) {
 				repo := Repo{
 					Name: r.Name, Title: r.Name, Owner: cfg.Owner,
 					Description: r.Description, HomepageURL: r.HomepageURL,
-					RepoURL:  fmt.Sprintf("https://github.com/%s/%s", cfg.Owner, r.Name),
-					BadgeURL: cfg.BadgeURL,
+					RepoURL: fmt.Sprintf("https://github.com/%s/%s", cfg.Owner, r.Name),
 				}
 				for _, topic := range r.RepositoryTopics {
 					repo.Topics = append(repo.Topics, topic.Name)
@@ -337,7 +343,7 @@ func Run(cfg Config) (string, error) {
 	var pageTemplate pageTemplate
 	if cfg.Format == "sidebar" {
 		var err error
-		pageTemplate, err = loadPageTemplate()
+		pageTemplate, err = loadPageTemplate(cfg.Template)
 		if err != nil {
 			return "", err
 		}

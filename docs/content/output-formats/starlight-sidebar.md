@@ -8,10 +8,11 @@ YAML, JSON, and HTML formats write one data or index file. `sidebar` mode writes
 ```sh
 gh docs index --owner mindovermachine-dev \
   --file docs/sidebar/repositories.mjs \
-  --pages-dir astro/src/content/docs/repositories
+  --pages-dir astro/src/content/docs/repositories \
+  --template docs/repository-template.mdx
 ```
 
-Sidebar mode requires `docs/repository-template.md` or `docs/repository-template.mdx`; it does not use an embedded fallback. If both exist, `.md` is preferred. Generated pages use the same extension as the selected template. Create the standalone Markdown starter from the maintained source without contacting GitHub:
+Sidebar mode defaults to `docs/repository-template.md` or `docs/repository-template.mdx`; it does not use an embedded fallback. If both exist, `.md` is preferred. Use `--template <path>` or `index.template` to select a file elsewhere; the template location is independent of `--pages-dir`. Generated pages use the same extension as the selected template. Create the standalone Markdown starter from the maintained source without contacting GitHub:
 
 ```sh
 gh docs template --starlight --output docs
@@ -25,25 +26,37 @@ Templates are regular Markdown files parsed with Go `text/template`. The gh-docs
 
 The template receives a `Repo` with these fields. Optional metadata is an empty string, empty list, or zero when unavailable and can be checked with `if`.
 
-| Expression                    | Meaning                                           |
-| ----------------------------- | ------------------------------------------------- |
-| `[% .Owner %]`                | GitHub owner or organization.                     |
-| `[% .Name %]`                 | Repository name.                                  |
-| `[% .Title %]`                | Display title (repository name by default).       |
-| `[% .Description %]`          | Description, if available.                        |
-| `[% .Slug %]`                 | Safe generated page slug.                         |
-| `[% .RepoURL %]`              | Canonical GitHub repository URL.                  |
-| `[% .HomepageURL %]`          | Configured documentation/homepage URL.            |
-| `[% .Topics %]`               | Repository topic names; iterate with `range`.     |
-| `[% .BadgeURL %]`             | Configured status badge URL, or empty.            |
-| `[% .DefaultBranch %]`        | Default branch, if available.                     |
-| `[% .LatestCommit.SHA %]`     | Short latest default-branch commit SHA.           |
-| `[% .LatestCommit.Date %]`    | Commit date in RFC 3339 format.                   |
-| `[% .LatestCommit.Message %]` | First line of the latest commit message.          |
-| `[% .LatestVersion %]`        | Highest stable SemVer tag, excluding prereleases. |
-| `[% .Stars %]`                | Star count, when collected.                       |
-| `[% .License %]`              | SPDX license identifier, if available.            |
-| `[% .UpdatedAt %]`            | Repository update timestamp in RFC 3339 format.   |
+When placing a description in YAML frontmatter, pipe it through the `yaml` helper (for example, `description: [% .Description | yaml %]`). Repository descriptions are arbitrary strings; without YAML serialization, quotes, colons, or newlines can make the frontmatter invalid. In page body content, use `[% .Description %]` directly.
+
+| Expression                    | Meaning                                                         |
+| ----------------------------- | --------------------------------------------------------------- |
+| `[% .Owner %]`                | GitHub owner or organization.                                   |
+| `[% .Name %]`                 | Repository name.                                                |
+| `[% .Title %]`                | Display title (repository name by default).                     |
+| `[% .Description %]`          | Description, if available.                                      |
+| `[% .Slug %]`                 | Safe generated page slug.                                       |
+| `[% .RepoURL %]`              | Canonical GitHub repository URL.                                |
+| `[% .HomepageURL %]`          | Configured documentation/homepage URL.                          |
+| `[% .Topics %]`               | Repository topic names; iterate with `range`.                   |
+| `[% .Workflows %]`            | Map of active workflow filenames to `true`; check with `index`. |
+| `[% .DefaultBranch %]`        | Default branch, if available.                                   |
+| `[% .LatestCommit.SHA %]`     | Short latest default-branch commit SHA.                         |
+| `[% .LatestCommit.Date %]`    | Commit date in RFC 3339 format.                                 |
+| `[% .LatestCommit.Message %]` | First line of the latest commit message.                        |
+| `[% .LatestVersion %]`        | Highest stable SemVer tag, excluding prereleases.               |
+| `[% .Stars %]`                | Star count, when collected.                                     |
+| `[% .License %]`              | SPDX license identifier, if available.                          |
+| `[% .UpdatedAt %]`            | Repository update timestamp in RFC 3339 format.                 |
+
+In sidebar mode, the command fetches each repository's active GitHub Actions workflow paths and exposes their filenames through `.Workflows`. Use Go's built-in `index` function to render repository-specific badges only when the corresponding workflow exists:
+
+```markdown
+[% if index .Workflows "release.yml" %]
+[![Release]([% .RepoURL %]/actions/workflows/release.yml/badge.svg)]([% .RepoURL %]/actions/workflows/release.yml)
+[% end %]
+```
+
+Workflow lookup failures are warnings; the repository's workflow map is empty, so conditional badge blocks are omitted.
 
 For example, this is a complete user-authored Markdown page template:
 
