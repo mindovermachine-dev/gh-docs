@@ -3,6 +3,13 @@ title: [% .Title | yaml %]
 description: [% .Description | yaml %]
 ---
 
+[% if .HomepageURL %]
+
+> [📚 **Documentation**](<[% .HomepageURL %]>) · [💻 **GitHub repository**](<[% .RepoURL %]>)
+> [% else %]
+> [💻 **GitHub repository**](<[% .RepoURL %]>)
+> [% end %]
+
 [% if .BadgeURL %]
 <img src="[% .BadgeURL %]" alt="Build status">
 [% end %]

@@ -2,8 +2,8 @@ export const sidebar = [
   {
     label: "Documentation",
     items: [
-      { label: "alpha", link: "https://example.github.io/alpha" },
-      { label: "delta", link: "https://github.com/o/delta" },
+      { label: "alpha", link: "/repo/alpha/" },
+      { label: "delta", link: "/repo/delta/" },
     ],
   },
 ];

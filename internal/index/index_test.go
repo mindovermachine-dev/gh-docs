@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/mindovermachine-dev/gh-docs/internal/testutil"
@@ -76,6 +77,7 @@ func TestLoadConfig(t *testing.T) {
 		wantErr  bool
 	}{
 		{"index node", "index:\n  owner: acme\n  topic: docs\n  limit: 5\n", true, Config{Owner: "acme", Topic: "docs", Limit: 5}, false},
+		{"page settings", "index:\n  pages-dir: site/docs/repositories\n  base-url: /repositories\n", true, Config{PagesDir: "site/docs/repositories", BaseURL: "/repositories"}, false},
 		{"other nodes ignored", "template:\n  output: x\n", true, Config{}, false},
 		{"missing optional", "", false, Config{}, false},
 		{"missing required", "", true, Config{}, true},
@@ -157,11 +159,22 @@ func TestValidate(t *testing.T) {
 // Golden files live in testdata/golden; refresh them with `go test ./internal/index -update`.
 func TestRunGolden(t *testing.T) {
 	testutil.FakeGH(t, testutil.ReposFixture(), 0)
+	goldenDir, err := filepath.Abs(filepath.Join("testdata", "golden"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, name := range []string{"index.yml", "index.yaml", "index.json", "index.html", "index.mjs"} {
 		t.Run(name, func(t *testing.T) {
-			out := filepath.Join(t.TempDir(), "nested", "dir", name)
+			dir := t.TempDir()
+			out := filepath.Join(dir, "nested", "dir", name)
 			cfg := Merge(Config{}, Config{Owner: "o", File: out})
+			cfg.PagesDir = filepath.Join(dir, "pages")
+			cfg.BaseURL = "/repo"
+			if name == "index.mjs" {
+				testutil.Chdir(t, dir)
+				testutil.WriteFile(t, dir, filepath.Join("docs", "repository-template.md"), "# [% .Name %]\n")
+			}
 			path, err := Run(cfg)
 			if err != nil {
 				t.Fatal(err)
@@ -174,7 +187,7 @@ func TestRunGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			golden := filepath.Join("testdata", "golden", name)
+			golden := filepath.Join(goldenDir, name)
 			if *update {
 				testutil.WriteFile(t, "", golden, string(got))
 			}
@@ -202,6 +215,253 @@ func TestRunDefaultsToFormatExtension(t *testing.T) {
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestRunSidebarFormatUsesPairedDefaults(t *testing.T) {
+	testutil.FakeGH(t, testutil.ReposFixture(), 0)
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	if err := StarlightTemplate(filepath.Join("docs", "repository-template.md"), false); err != nil {
+		t.Fatal(err)
+	}
+	path, err := Run(Merge(Config{}, Config{Owner: "o", Format: "sidebar"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path != "docs-repos.mjs" {
+		t.Fatalf("path = %s", path)
+	}
+	if _, err := os.Stat(filepath.Join("docs", "content", "repo", "alpha.md")); err != nil {
+		t.Fatal(err)
+	}
+	alpha, err := os.ReadFile(filepath.Join("docs", "content", "repo", "alpha.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	delta, err := os.ReadFile(filepath.Join("docs", "content", "repo", "delta.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(alpha), "[📚 **Documentation**](<https://example.github.io/alpha>)") ||
+		!strings.Contains(string(alpha), "[💻 **GitHub repository**](<https://github.com/o/alpha>)") {
+		t.Errorf("missing repository actions: %s", alpha)
+	}
+	if strings.Contains(string(delta), "**Documentation**") ||
+		!strings.Contains(string(delta), "[💻 **GitHub repository**](<https://github.com/o/delta>)") {
+		t.Errorf("unexpected actions without a homepage: %s", delta)
+	}
+}
+
+func TestRunSidebarPageExtensionMatchesTemplate(t *testing.T) {
+	for _, extension := range []string{".md", ".mdx"} {
+		t.Run(extension, func(t *testing.T) {
+			testutil.FakeGH(t, testutil.ReposFixture(), 0)
+			dir := t.TempDir()
+			testutil.Chdir(t, dir)
+			testutil.WriteFile(t, dir, filepath.Join("docs", "repository-template"+extension), "# [% .Name %]\n")
+
+			cfg := Merge(Config{}, Config{Owner: "o", Format: "sidebar"})
+			if _, err := Run(cfg); err != nil {
+				t.Fatal(err)
+			}
+			pagePath := filepath.Join(cfg.PagesDir, "alpha"+extension)
+			if _, err := os.Stat(pagePath); err != nil {
+				t.Fatalf("generated page %s: %v", pagePath, err)
+			}
+		})
+	}
+}
+
+func TestRunSidebarCreatesPagesDirectoryWithNoMatches(t *testing.T) {
+	testutil.FakeGH(t, testutil.ReposFixture(), 0)
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	testutil.WriteFile(t, dir, filepath.Join("docs", "repository-template.md"), "# Repositories\n")
+	pagesDir := filepath.Join(dir, "pages")
+	cfg := Merge(Config{}, Config{
+		Owner: "o", Topic: "no-matches", Format: "sidebar",
+		File: filepath.Join(dir, "sidebar.mjs"), PagesDir: pagesDir,
+	})
+	if _, err := Run(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Stat(pagesDir); err != nil || !info.IsDir() {
+		t.Fatalf("pages directory was not created: %v", err)
+	}
+}
+
+func TestRunSidebarGeneratesPagesAndLocalSidebar(t *testing.T) {
+	testutil.FakeGH(t, testutil.ReposFixture(), 0)
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	testutil.WriteFile(t, dir, filepath.Join("docs", "repository-template.md"), "# [% .Owner %]/[% .Name %]\n[% yaml .Description %]\n")
+	cfg := Merge(Config{}, Config{
+		Owner: "o", File: filepath.Join(dir, "sidebar.mjs"),
+		PagesDir: filepath.Join(dir, "pages"),
+		BaseURL:  "/repositories",
+	})
+	if _, err := Run(cfg); err != nil {
+		t.Fatal(err)
+	}
+	page, err := os.ReadFile(filepath.Join(dir, "pages", "alpha.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(page) != "# o/alpha\nAlpha docs\n" {
+		t.Errorf("page = %q", page)
+	}
+	sidebar, err := os.ReadFile(cfg.File)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(sidebar), `{ label: "alpha", link: "/repositories/alpha/" }`) ||
+		strings.Contains(string(sidebar), "https://") {
+		t.Errorf("unexpected sidebar: %s", sidebar)
+	}
+}
+
+func TestStarlightTemplate(t *testing.T) {
+	dir := t.TempDir()
+	destination := filepath.Join(dir, "nested", "template.md")
+	if err := StarlightTemplate(destination, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := os.ReadFile("templates/starlight.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(want) {
+		t.Fatal("scaffold differs from maintained template")
+	}
+	if err := StarlightTemplate(destination, false); err == nil {
+		t.Fatal("expected existing destination error")
+	}
+	// #nosec G304 -- destination is inside the temporary test directory.
+	afterRefusal, err := os.ReadFile(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(afterRefusal) != string(want) {
+		t.Fatal("existing template was changed without --force")
+	}
+	if err := StarlightTemplate(destination, true); err != nil {
+		t.Fatalf("force overwrite failed: %v", err)
+	}
+}
+
+func TestSidebarTemplateErrorsIdentifyRepository(t *testing.T) {
+	testutil.FakeGH(t, testutil.ReposFixture(), 0)
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	testutil.WriteFile(t, dir, filepath.Join("docs", "repository-template.md"), "[% .UnknownField %]")
+	cfg := Merge(Config{}, Config{
+		Owner: "o", File: filepath.Join(dir, "sidebar.mjs"),
+		PagesDir: filepath.Join(dir, "pages"),
+	})
+	_, err := Run(cfg)
+	if err == nil || !strings.Contains(err.Error(), filepath.Join("docs", "repository-template.md")) || !strings.Contains(err.Error(), "repository alpha") {
+		t.Fatalf("error = %v", err)
+	}
+	if _, err := os.Stat(cfg.File); !os.IsNotExist(err) {
+		t.Fatalf("sidebar should not be written after render failure, stat error = %v", err)
+	}
+}
+
+func TestSlugAndPageURL(t *testing.T) {
+	if got := slug("../My Repo__"); got != "my-repo" {
+		t.Errorf("slug = %q", got)
+	}
+	if got := PageURL("astro/src/content/docs/repositories", "", "alpha"); got != "/repositories/alpha/" {
+		t.Errorf("page URL = %q", got)
+	}
+	if got := PageURL("docs/content/repo", "/catalog/", "alpha"); got != "/catalog/alpha/" {
+		t.Errorf("configured page URL = %q", got)
+	}
+}
+
+func TestSlugCollisionsFailBeforeWriting(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	testutil.WriteFile(t, dir, filepath.Join("docs", "repository-template.md"), "# [% .Name %]\n")
+	tmpl, err := loadPageTemplate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := Merge(Config{}, Config{
+		Format: "sidebar", File: filepath.Join(dir, "sidebar.mjs"),
+		PagesDir: filepath.Join(dir, "pages"),
+	})
+	_, err = writePagesAndSidebar(cfg, []Repo{{Name: "repo.one"}, {Name: "repo-one"}}, tmpl)
+	if err == nil || !strings.Contains(err.Error(), "same page slug") {
+		t.Fatalf("error = %v", err)
+	}
+	if _, err := os.Stat(cfg.File); !os.IsNotExist(err) {
+		t.Fatalf("sidebar should not be written, stat error = %v", err)
+	}
+}
+
+func TestHighestStableVersion(t *testing.T) {
+	tags := []struct {
+		Name string `json:"name"`
+	}{{"v1.9.0"}, {"v1.10.0"}, {"v2.0.0-rc.1"}, {"2.0.0+build.1"}, {"latest"}}
+	if got := highestStableVersion(tags); got != "2.0.0+build.1" {
+		t.Errorf("version = %q, want 2.0.0+build.1", got)
+	}
+}
+
+func TestMergePageOptions(t *testing.T) {
+	base := Config{PagesDir: "configured/pages", BaseURL: "/configured", BadgeURL: "configured.svg"}
+	overrides := Config{PagesDir: "flag/pages", BaseURL: "/flag", BadgeURL: "flag.svg"}
+	got := Merge(base, overrides)
+	if got.PagesDir != "flag/pages" || got.BaseURL != "/flag" || got.BadgeURL != "flag.svg" {
+		t.Errorf("flag options did not override config: %+v", got)
+	}
+	got = Merge(Config{}, Config{})
+	if got.PagesDir != "docs/content/repo" {
+		t.Errorf("default pages directory = %q", got.PagesDir)
+	}
+}
+
+func TestSingleFileFormatsDoNotFetchSidebarMetadata(t *testing.T) {
+	dir := t.TempDir()
+	scriptDir := filepath.Join(dir, "bin")
+	if err := os.MkdirAll(scriptDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	logPath := filepath.Join(dir, "calls")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$GH_CALL_LOG\"\ncat \"$GH_FIXTURE\"\n"
+	scriptPath := filepath.Join(scriptDir, "gh")
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", scriptDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("GH_CALL_LOG", logPath)
+	t.Setenv("GH_FIXTURE", testutil.ReposFixture())
+
+	for _, format := range []string{"yaml", "json", "html"} {
+		t.Run(format, func(t *testing.T) {
+			if err := os.WriteFile(logPath, nil, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			cfg := Merge(Config{}, Config{
+				Owner: "o", Format: format, File: filepath.Join(dir, "out."+extForFormat(format)),
+			})
+			if _, err := Run(cfg); err != nil {
+				t.Fatal(err)
+			}
+			calls, err := os.ReadFile(logPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if lines := strings.Split(strings.TrimSpace(string(calls)), "\n"); len(lines) != 1 || !strings.HasPrefix(lines[0], "repo list ") {
+				t.Errorf("unexpected gh calls: %q", calls)
+			}
+		})
 	}
 }
 

@@ -1,4 +1,5 @@
 index:
   owner: mindovermachine-dev
   topic: documentation
-  file: docz/docs-repos.html
+  visibility: public
+  format: sidebar
