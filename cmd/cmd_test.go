@@ -72,6 +72,25 @@ func TestIndexCommand(t *testing.T) {
 	})
 }
 
+func TestIndexStarlightScaffoldDoesNotInvokeGitHub(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	t.Setenv("PATH", t.TempDir())
+	stdout, err := run(t, "index", "--starlight")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout, "Wrote repository-template.md") {
+		t.Errorf("stdout = %q", stdout)
+	}
+	if _, err := os.Stat("repository-template.md"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(t, "index", "--starlight"); err == nil {
+		t.Fatal("expected refusing to overwrite the existing template")
+	}
+}
+
 func TestTemplateCommand(t *testing.T) {
 	dir := t.TempDir()
 	cfg := testutil.WriteFile(t, dir, "cfg.yml", "template:\n  output: "+filepath.Join(dir, "site")+"\n")

@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
+	htmltemplate "html/template"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
+	texttemplate "text/template"
 
 	"github.com/mindovermachine-dev/gh-docs/internal/config"
 	"gopkg.in/yaml.v3"
@@ -23,21 +24,52 @@ type Config struct {
 	Topic      string `yaml:"topic"`
 	Format     string `yaml:"format"`
 	File       string `yaml:"file"`
+	PagesDir   string `yaml:"pages-dir"`
+	Template   string `yaml:"template"`
+	BaseURL    string `yaml:"base-url"`
+	BadgeURL   string `yaml:"badge-url"`
 	Limit      int    `yaml:"limit"`
 }
 
 // Repo is a single entry in the generated index.
 type Repo struct {
-	Name        string `yaml:"name" json:"name"`
-	Description string `yaml:"description" json:"description"`
-	HomepageURL string `yaml:"homepageUrl" json:"homepageUrl"`
-	SidebarURL  string `yaml:"-" json:"-"`
+	Name          string       `yaml:"name" json:"name"`
+	Description   string       `yaml:"description" json:"description"`
+	HomepageURL   string       `yaml:"homepageUrl" json:"homepageUrl"`
+	Owner         string       `yaml:"-" json:"-"`
+	Title         string       `yaml:"-" json:"-"`
+	Slug          string       `yaml:"-" json:"-"`
+	RepoURL       string       `yaml:"-" json:"-"`
+	Topics        []string     `yaml:"-" json:"-"`
+	BadgeURL      string       `yaml:"-" json:"-"`
+	DefaultBranch string       `yaml:"-" json:"-"`
+	LatestCommit  LatestCommit `yaml:"-" json:"-"`
+	LatestVersion string       `yaml:"-" json:"-"`
+	Stars         int          `yaml:"-" json:"-"`
+	License       string       `yaml:"-" json:"-"`
+	UpdatedAt     string       `yaml:"-" json:"-"`
+	SidebarURL    string       `yaml:"-" json:"-"`
+}
+
+// LatestCommit contains metadata for a repository's default-branch head commit.
+type LatestCommit struct {
+	SHA     string
+	Date    string
+	Message string
 }
 
 type ghRepo struct {
 	Name             string `json:"name"`
 	Description      string `json:"description"`
 	HomepageURL      string `json:"homepageUrl"`
+	DefaultBranchRef *struct {
+		Name string `json:"name"`
+	} `json:"defaultBranchRef"`
+	StargazerCount int `json:"stargazerCount"`
+	LicenseInfo    *struct {
+		SPDXID string `json:"spdxId"`
+	} `json:"licenseInfo"`
+	UpdatedAt        string `json:"updatedAt"`
 	RepositoryTopics []struct {
 		Name string `json:"name"`
 	} `json:"repositoryTopics"`
@@ -49,6 +81,7 @@ var fallback = Config{
 	Topic:      "documentation",
 	Format:     "yaml",
 	File:       "docs-repos", // extension is appended from the format
+	PagesDir:   "docs/content/repo",
 	Limit:      1000,
 }
 
@@ -114,8 +147,23 @@ func Merge(base, overrides Config) Config {
 	if overrides.Limit != 0 {
 		out.Limit = overrides.Limit
 	}
+	if overrides.PagesDir != "" {
+		out.PagesDir = overrides.PagesDir
+	}
+	if overrides.Template != "" {
+		out.Template = overrides.Template
+	}
+	if overrides.BaseURL != "" {
+		out.BaseURL = overrides.BaseURL
+	}
+	if overrides.BadgeURL != "" {
+		out.BadgeURL = overrides.BadgeURL
+	}
 	if out.Visibility == "" {
 		out.Visibility = fallback.Visibility
+	}
+	if out.PagesDir == "" {
+		out.PagesDir = fallback.PagesDir
 	}
 	if out.Topic == "" {
 		out.Topic = fallback.Topic
@@ -155,11 +203,15 @@ func (c Config) Validate() error {
 	return nil
 }
 
-func ghList(owner, visibility string, limit int) ([]byte, error) {
-	out, err := exec.Command("gh", "repo", "list", owner,
-		"--visibility", visibility,
-		"--limit", fmt.Sprint(limit),
-		"--json", "name,homepageUrl,description,repositoryTopics").Output()
+func ghList(cfg Config) ([]byte, error) {
+	fields := "name,homepageUrl,description,repositoryTopics"
+	if cfg.Format == "sidebar" {
+		fields += ",defaultBranchRef,stargazerCount,licenseInfo,updatedAt"
+	}
+	out, err := runGH("repo", "list", cfg.Owner,
+		"--visibility", cfg.Visibility,
+		"--limit", fmt.Sprint(cfg.Limit),
+		"--json", fields)
 	if err != nil {
 		return nil, fmt.Errorf("gh repo list failed: %w", err)
 	}
@@ -168,7 +220,7 @@ func ghList(owner, visibility string, limit int) ([]byte, error) {
 
 // Collect lists repos and keeps those carrying the configured topic.
 func Collect(cfg Config) ([]Repo, error) {
-	raw, err := ghList(cfg.Owner, cfg.Visibility, cfg.Limit)
+	raw, err := ghList(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -180,19 +232,37 @@ func Collect(cfg Config) ([]Repo, error) {
 	for _, r := range repos {
 		for _, t := range r.RepositoryTopics {
 			if strings.EqualFold(t.Name, cfg.Topic) {
-				link := r.HomepageURL
-				if link == "" {
-					link = fmt.Sprintf("https://github.com/%s/%s", cfg.Owner, r.Name)
+				repo := Repo{
+					Name: r.Name, Title: r.Name, Owner: cfg.Owner,
+					Description: r.Description, HomepageURL: r.HomepageURL,
+					RepoURL:  fmt.Sprintf("https://github.com/%s/%s", cfg.Owner, r.Name),
+					BadgeURL: cfg.BadgeURL,
 				}
-				result = append(result, Repo{Name: r.Name, Description: r.Description, HomepageURL: r.HomepageURL, SidebarURL: link})
+				for _, topic := range r.RepositoryTopics {
+					repo.Topics = append(repo.Topics, topic.Name)
+				}
+				if cfg.Format == "sidebar" {
+					if r.DefaultBranchRef != nil {
+						repo.DefaultBranch = r.DefaultBranchRef.Name
+					}
+					if r.LicenseInfo != nil {
+						repo.License = r.LicenseInfo.SPDXID
+					}
+					repo.Stars, repo.UpdatedAt = r.StargazerCount, r.UpdatedAt
+				}
+				result = append(result, repo)
 				break
 			}
 		}
 	}
+	if cfg.Format == "sidebar" {
+		sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
+		collectMetadata(cfg.Owner, result)
+	}
 	return result, nil
 }
 
-var htmlTmpl = template.Must(template.New("index").Parse(`<!DOCTYPE html>
+var htmlTmpl = htmltemplate.Must(htmltemplate.New("index").Parse(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -219,7 +289,10 @@ func renderSidebar(repos []Repo) ([]byte, error) {
 		}
 		linkValue := repo.SidebarURL
 		if linkValue == "" {
-			linkValue = repo.HomepageURL
+			linkValue = pageURL("docs/content/repo", "", repo.Slug)
+			if repo.Slug == "" {
+				linkValue = pageURL("docs/content/repo", "", slug(repo.Name))
+			}
 		}
 		link, err := json.Marshal(linkValue)
 		if err != nil {
@@ -266,9 +339,20 @@ func Run(cfg Config) (string, error) {
 	if err := cfg.Validate(); err != nil {
 		return "", err
 	}
+	var pageTemplate *texttemplate.Template
+	if cfg.Format == "sidebar" {
+		var err error
+		pageTemplate, err = loadPageTemplate(cfg.Template)
+		if err != nil {
+			return "", err
+		}
+	}
 	repos, err := Collect(cfg)
 	if err != nil {
 		return "", err
+	}
+	if cfg.Format == "sidebar" {
+		return writePagesAndSidebar(cfg, repos, pageTemplate)
 	}
 	data, err := Render(repos, cfg.Format)
 	if err != nil {
@@ -282,4 +366,14 @@ func Run(cfg Config) (string, error) {
 		return "", fmt.Errorf("failed to write %s: %w", path, err)
 	}
 	return path, nil
+}
+
+// StarlightTemplate copies the maintained starter page template without overwriting files.
+func StarlightTemplate(destination string) error {
+	return scaffoldStarlight(destination)
+}
+
+// PageURL returns the local Starlight route for a generated repository page.
+func PageURL(pagesDir, baseURL, repoSlug string) string {
+	return pageURL(pagesDir, baseURL, repoSlug)
 }
