@@ -13,7 +13,6 @@ index:
   format: sidebar
   file: docs/sidebar/repositories.mjs
   pages-dir: astro/src/content/docs/repositories
-  template: astro/repository-template.md
   base-url: /repositories
   limit: 1000
 
@@ -26,22 +25,21 @@ version:
 
 ## `index` settings
 
-| Key          | Default                 | Description                                                                                         |
-| ------------ | ----------------------- | --------------------------------------------------------------------------------------------------- |
-| `owner`      | None                    | GitHub user or organization. Required unless provided with `--owner`.                               |
-| `visibility` | `public`                | One of `public`, `internal`, or `private`.                                                          |
-| `topic`      | `documentation`         | Repository topic used to select repositories.                                                       |
-| `format`     | `yaml`                  | `yaml`, `json`, and `html` are single-file exports; `sidebar` generates pages and a sidebar module. |
-| `file`       | Derived from `format`   | Output path. `.mjs` selects paired sidebar/page generation.                                         |
-| `pages-dir`  | `docs/content/repo`     | Markdown page output directory (sidebar mode).                                                      |
-| `template`   | Built-in Starlight page | User-authored Markdown template (sidebar mode); also the `--starlight` scaffold destination.        |
-| `base-url`   | Inferred                | URL prefix for local sidebar links when not inferable from the content path.                        |
-| `badge-url`  | None                    | Optional status badge URL exposed to templates.                                                     |
-| `limit`      | `1000`                  | Maximum repositories fetched from GitHub.                                                           |
+| Key          | Default               | Description                                                                                         |
+| ------------ | --------------------- | --------------------------------------------------------------------------------------------------- |
+| `owner`      | None                  | GitHub user or organization. Required unless provided with `--owner`.                               |
+| `visibility` | `public`              | One of `public`, `internal`, or `private`.                                                          |
+| `topic`      | `documentation`       | Repository topic used to select repositories.                                                       |
+| `format`     | `yaml`                | `yaml`, `json`, and `html` are single-file exports; `sidebar` generates pages and a sidebar module. |
+| `file`       | Derived from `format` | Output path. `.mjs` selects paired sidebar/page generation.                                         |
+| `pages-dir`  | `docs/content/repo`   | Markdown page output directory (sidebar mode).                                                      |
+| `base-url`   | Inferred              | URL prefix for local sidebar links when not inferable from the content path.                        |
+| `badge-url`  | None                  | Optional status badge URL exposed to templates.                                                     |
+| `limit`      | `1000`                | Maximum repositories fetched from GitHub.                                                           |
 
 Do not set both `index.file` and `index.format`; the configuration is rejected. Likewise, `--file` and `--format` cannot be passed together. When a flag supplies one of these settings, it overrides the config value for the other and selects the output accordingly.
 
-Flags override `.docs.yml`, which overrides built-in defaults. Relative output and template paths are resolved from the current working directory. `pages-dir`, `template`, `base-url`, and `badge-url` apply to sidebar mode; they are ignored for YAML, JSON, and HTML exports. Without `template`, sidebar mode uses the maintained Starlight starter. Generated pages are replaced on later runs, but stale pages are not deleted automatically.
+Flags override `.docs.yml`, which overrides built-in defaults. Relative output paths are resolved from the current working directory. `pages-dir`, `base-url`, and `badge-url` apply to sidebar mode; they are ignored for YAML, JSON, and HTML exports. Sidebar mode reads the user-editable Markdown template at `docs/repository-template.md`, created with `gh docs template --starlight --output docs`. Generated pages are replaced on later runs, but stale pages are not deleted automatically.
 
 ## `template` settings
 

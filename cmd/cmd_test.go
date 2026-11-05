@@ -72,22 +72,52 @@ func TestIndexCommand(t *testing.T) {
 	})
 }
 
-func TestIndexStarlightScaffoldDoesNotInvokeGitHub(t *testing.T) {
+func TestTemplateStarlightScaffold(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
 	t.Setenv("PATH", t.TempDir())
-	stdout, err := run(t, "index", "--starlight")
+	stdout, err := run(t, "template", "--starlight")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(stdout, "Wrote repository-template.md") {
+	if !strings.Contains(stdout, filepath.Join("docs", "repository-template.md")) {
 		t.Errorf("stdout = %q", stdout)
 	}
-	if _, err := os.Stat("repository-template.md"); err != nil {
+	if _, err := os.Stat(filepath.Join("docs", "repository-template.md")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := run(t, "index", "--starlight"); err == nil {
+	if _, err := run(t, "template", "--starlight"); err == nil {
 		t.Fatal("expected refusing to overwrite the existing template")
+	}
+	if _, err := run(t, "template", "--starlight", "--force"); err != nil {
+		t.Fatalf("force overwrite failed: %v", err)
+	}
+
+	customOutput := filepath.Join(dir, "custom")
+	if _, err := run(t, "template", "--starlight", "--output", customOutput); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(customOutput, "repository-template.md")); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestIndexRequiresScaffoldedTemplateAndHidesScaffoldFlags(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	t.Setenv("PATH", t.TempDir())
+	if _, err := run(t, "index", "--owner", "acme", "--format", "sidebar"); err == nil ||
+		!strings.Contains(err.Error(), "gh docs template --starlight --output docs") {
+		t.Fatalf("expected actionable missing-template error, got %v", err)
+	}
+	out, err := run(t, "index", "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, removed := range []string{"--template", "--starlight"} {
+		if strings.Contains(out, removed) {
+			t.Errorf("index help still advertises %s", removed)
+		}
 	}
 }
 

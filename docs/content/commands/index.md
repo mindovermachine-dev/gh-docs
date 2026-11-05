@@ -15,20 +15,18 @@ The owner can be set in `.docs.yml` instead of passed as a flag. The command inv
 
 ## Flags
 
-| Flag                 | Default                 | Description                                                                                      |
-| -------------------- | ----------------------- | ------------------------------------------------------------------------------------------------ |
-| `-c`, `--config`     | `.docs.yml`             | Path to the configuration file.                                                                  |
-| `-o`, `--owner`      | None                    | GitHub user or organization to list. Required unless configured.                                 |
-| `-v`, `--visibility` | `public`                | Repository visibility: `public`, `internal`, or `private`.                                       |
-| `-t`, `--topic`      | `documentation`         | Repository topic to match. Matching is case-insensitive.                                         |
-| `-F`, `--format`     | `yaml`                  | Output format: `yaml`, `json`, `html`, or `sidebar`. Cannot be used with `--file`.               |
-| `-f`, `--file`       | `docs-repos.yml`        | Output path. `.mjs` selects paired sidebar/page generation.                                      |
-| `--pages-dir`        | `docs/content/repo`     | Directory for generated Markdown pages in sidebar mode.                                          |
-| `--template`         | Built-in Starlight page | Markdown template in sidebar mode; with `--starlight`, destination path.                         |
-| `--base-url`         | Inferred                | URL prefix for local sidebar links when the filesystem layout does not determine the site route. |
-| `--badge-url`        | None                    | Optional status badge URL exposed to the page template.                                          |
-| `--starlight`        | `false`                 | Copy the maintained page template and exit without querying GitHub.                              |
-| `-l`, `--limit`      | `1000`                  | Maximum number of repositories returned by `gh repo list`.                                       |
+| Flag                 | Default             | Description                                                                                      |
+| -------------------- | ------------------- | ------------------------------------------------------------------------------------------------ |
+| `-c`, `--config`     | `.docs.yml`         | Path to the configuration file.                                                                  |
+| `-o`, `--owner`      | None                | GitHub user or organization to list. Required unless configured.                                 |
+| `-v`, `--visibility` | `public`            | Repository visibility: `public`, `internal`, or `private`.                                       |
+| `-t`, `--topic`      | `documentation`     | Repository topic to match. Matching is case-insensitive.                                         |
+| `-F`, `--format`     | `yaml`              | Output format: `yaml`, `json`, `html`, or `sidebar`. Cannot be used with `--file`.               |
+| `-f`, `--file`       | `docs-repos.yml`    | Output path. `.mjs` selects paired sidebar/page generation.                                      |
+| `--pages-dir`        | `docs/content/repo` | Directory for generated Markdown pages in sidebar mode.                                          |
+| `--base-url`         | Inferred            | URL prefix for local sidebar links when the filesystem layout does not determine the site route. |
+| `--badge-url`        | None                | Optional status badge URL exposed to the page template.                                          |
+| `-l`, `--limit`      | `1000`              | Maximum number of repositories returned by `gh repo list`.                                       |
 
 Supported output extensions are `.yml`, `.yaml`, `.json`, `.html`, and `.mjs`. YAML, JSON, and HTML are single-file exports. The `.mjs` extension selects the paired sidebar/pages format.
 
@@ -94,13 +92,12 @@ See [Starlight's sidebar reference](https://starlight.astro.build/guides/sidebar
 
 ```sh
 gh docs index --owner mindovermachine-dev --file docs/sidebar/repositories.mjs \
-  --pages-dir astro/src/content/docs/repositories \
-  --template astro/repository-template.md
+  --pages-dir astro/src/content/docs/repositories
 ```
 
 The generated module exports one `Documentation` group with `{ label, link }` items. Links point to the pages generated in the same invocation, not to GitHub or repository homepage URLs. For the default `docs/content/repo` directory the inferred route is `/repo/<slug>/`; for a path under `src/content/docs`, the route is inferred relative to `docs`. Use `--base-url` when you need to specify a route explicitly. Missing directories are created and generated pages are overwritten. Pages for repositories no longer selected are not deleted and must be cleaned up manually.
 
-Run `gh docs index --starlight --template astro/repository-template.md` to copy the maintained starter Markdown template without querying GitHub. If omitted, the destination is `repository-template.md` in the current directory. Existing files are never overwritten. Edit the copied file and pass it to a normal sidebar invocation.
+Sidebar mode reads `docs/repository-template.md`. Create it with `gh docs template --starlight --output docs`; edit the copied file, then run `gh docs index --format sidebar` again.
 
 See [Starlight sidebar and page templates](../output-formats/starlight-sidebar.md) for template keywords, delimiters, configuration, and site imports.
 

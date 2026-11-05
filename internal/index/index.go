@@ -25,7 +25,6 @@ type Config struct {
 	Format     string `yaml:"format"`
 	File       string `yaml:"file"`
 	PagesDir   string `yaml:"pages-dir"`
-	Template   string `yaml:"template"`
 	BaseURL    string `yaml:"base-url"`
 	BadgeURL   string `yaml:"badge-url"`
 	Limit      int    `yaml:"limit"`
@@ -149,9 +148,6 @@ func Merge(base, overrides Config) Config {
 	}
 	if overrides.PagesDir != "" {
 		out.PagesDir = overrides.PagesDir
-	}
-	if overrides.Template != "" {
-		out.Template = overrides.Template
 	}
 	if overrides.BaseURL != "" {
 		out.BaseURL = overrides.BaseURL
@@ -342,7 +338,7 @@ func Run(cfg Config) (string, error) {
 	var pageTemplate *texttemplate.Template
 	if cfg.Format == "sidebar" {
 		var err error
-		pageTemplate, err = loadPageTemplate(cfg.Template)
+		pageTemplate, err = loadPageTemplate()
 		if err != nil {
 			return "", err
 		}
@@ -368,9 +364,9 @@ func Run(cfg Config) (string, error) {
 	return path, nil
 }
 
-// StarlightTemplate copies the maintained starter page template without overwriting files.
-func StarlightTemplate(destination string) error {
-	return scaffoldStarlight(destination)
+// StarlightTemplate copies the maintained starter page template to destination.
+func StarlightTemplate(destination string, force bool) error {
+	return scaffoldStarlight(destination, force)
 }
 
 // PageURL returns the local Starlight route for a generated repository page.

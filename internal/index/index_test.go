@@ -77,7 +77,7 @@ func TestLoadConfig(t *testing.T) {
 		wantErr  bool
 	}{
 		{"index node", "index:\n  owner: acme\n  topic: docs\n  limit: 5\n", true, Config{Owner: "acme", Topic: "docs", Limit: 5}, false},
-		{"page settings", "index:\n  pages-dir: site/docs/repositories\n  template: repository.md\n  base-url: /repositories\n", true, Config{PagesDir: "site/docs/repositories", Template: "repository.md", BaseURL: "/repositories"}, false},
+		{"page settings", "index:\n  pages-dir: site/docs/repositories\n  base-url: /repositories\n", true, Config{PagesDir: "site/docs/repositories", BaseURL: "/repositories"}, false},
 		{"other nodes ignored", "template:\n  output: x\n", true, Config{}, false},
 		{"missing optional", "", false, Config{}, false},
 		{"missing required", "", true, Config{}, true},
@@ -159,6 +159,10 @@ func TestValidate(t *testing.T) {
 // Golden files live in testdata/golden; refresh them with `go test ./internal/index -update`.
 func TestRunGolden(t *testing.T) {
 	testutil.FakeGH(t, testutil.ReposFixture(), 0)
+	goldenDir, err := filepath.Abs(filepath.Join("testdata", "golden"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, name := range []string{"index.yml", "index.yaml", "index.json", "index.html", "index.mjs"} {
 		t.Run(name, func(t *testing.T) {
@@ -167,6 +171,15 @@ func TestRunGolden(t *testing.T) {
 			cfg := Merge(Config{}, Config{Owner: "o", File: out})
 			cfg.PagesDir = filepath.Join(dir, "pages")
 			cfg.BaseURL = "/repo"
+			if name == "index.mjs" {
+				testutil.Chdir(t, dir)
+				if err := os.MkdirAll("docs", 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join("docs", "repository-template.md"), []byte("# [% .Name %]\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
 			path, err := Run(cfg)
 			if err != nil {
 				t.Fatal(err)
@@ -179,7 +192,7 @@ func TestRunGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			golden := filepath.Join("testdata", "golden", name)
+			golden := filepath.Join(goldenDir, name)
 			if *update {
 				testutil.WriteFile(t, "", golden, string(got))
 			}
@@ -214,6 +227,9 @@ func TestRunSidebarFormatUsesPairedDefaults(t *testing.T) {
 	testutil.FakeGH(t, testutil.ReposFixture(), 0)
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)
+	if err := StarlightTemplate(filepath.Join("docs", "repository-template.md"), false); err != nil {
+		t.Fatal(err)
+	}
 	path, err := Run(Merge(Config{}, Config{Owner: "o", Format: "sidebar"}))
 	if err != nil {
 		t.Fatal(err)
@@ -224,11 +240,34 @@ func TestRunSidebarFormatUsesPairedDefaults(t *testing.T) {
 	if _, err := os.Stat(filepath.Join("docs", "content", "repo", "alpha.md")); err != nil {
 		t.Fatal(err)
 	}
+	alpha, err := os.ReadFile(filepath.Join("docs", "content", "repo", "alpha.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	delta, err := os.ReadFile(filepath.Join("docs", "content", "repo", "delta.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(alpha), "[📚 **Documentation**](<https://example.github.io/alpha>)") ||
+		!strings.Contains(string(alpha), "[💻 **GitHub repository**](<https://github.com/o/alpha>)") {
+		t.Errorf("missing repository actions: %s", alpha)
+	}
+	if strings.Contains(string(delta), "**Documentation**") ||
+		!strings.Contains(string(delta), "[💻 **GitHub repository**](<https://github.com/o/delta>)") {
+		t.Errorf("unexpected actions without a homepage: %s", delta)
+	}
 }
 
 func TestRunSidebarCreatesPagesDirectoryWithNoMatches(t *testing.T) {
 	testutil.FakeGH(t, testutil.ReposFixture(), 0)
 	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	if err := os.MkdirAll("docs", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join("docs", "repository-template.md"), []byte("# Repositories\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	pagesDir := filepath.Join(dir, "pages")
 	cfg := Merge(Config{}, Config{
 		Owner: "o", Topic: "no-matches", Format: "sidebar",
@@ -245,11 +284,12 @@ func TestRunSidebarCreatesPagesDirectoryWithNoMatches(t *testing.T) {
 func TestRunSidebarGeneratesPagesAndLocalSidebar(t *testing.T) {
 	testutil.FakeGH(t, testutil.ReposFixture(), 0)
 	dir := t.TempDir()
-	templatePath := testutil.WriteFile(t, dir, "repo.md", "# [% .Owner %]/[% .Name %]\n[% yaml .Description %]\n")
+	testutil.Chdir(t, dir)
+	testutil.WriteFile(t, dir, filepath.Join("docs", "repository-template.md"), "# [% .Owner %]/[% .Name %]\n[% yaml .Description %]\n")
 	cfg := Merge(Config{}, Config{
 		Owner: "o", File: filepath.Join(dir, "sidebar.mjs"),
-		PagesDir: filepath.Join(dir, "pages"), Template: templatePath,
-		BaseURL: "/repositories",
+		PagesDir: filepath.Join(dir, "pages"),
+		BaseURL:  "/repositories",
 	})
 	if _, err := Run(cfg); err != nil {
 		t.Fatal(err)
@@ -274,7 +314,7 @@ func TestRunSidebarGeneratesPagesAndLocalSidebar(t *testing.T) {
 func TestStarlightTemplate(t *testing.T) {
 	dir := t.TempDir()
 	destination := filepath.Join(dir, "nested", "template.md")
-	if err := StarlightTemplate(destination); err != nil {
+	if err := StarlightTemplate(destination, false); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(destination)
@@ -288,21 +328,32 @@ func TestStarlightTemplate(t *testing.T) {
 	if string(got) != string(want) {
 		t.Fatal("scaffold differs from maintained template")
 	}
-	if err := StarlightTemplate(destination); err == nil {
+	if err := StarlightTemplate(destination, false); err == nil {
 		t.Fatal("expected existing destination error")
+	}
+	afterRefusal, err := os.ReadFile(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(afterRefusal) != string(want) {
+		t.Fatal("existing template was changed without --force")
+	}
+	if err := StarlightTemplate(destination, true); err != nil {
+		t.Fatalf("force overwrite failed: %v", err)
 	}
 }
 
 func TestSidebarTemplateErrorsIdentifyRepository(t *testing.T) {
 	testutil.FakeGH(t, testutil.ReposFixture(), 0)
 	dir := t.TempDir()
-	templatePath := testutil.WriteFile(t, dir, "bad.md", "[% .UnknownField %]")
+	testutil.Chdir(t, dir)
+	testutil.WriteFile(t, dir, filepath.Join("docs", "repository-template.md"), "[% .UnknownField %]")
 	cfg := Merge(Config{}, Config{
 		Owner: "o", File: filepath.Join(dir, "sidebar.mjs"),
-		PagesDir: filepath.Join(dir, "pages"), Template: templatePath,
+		PagesDir: filepath.Join(dir, "pages"),
 	})
 	_, err := Run(cfg)
-	if err == nil || !strings.Contains(err.Error(), templatePath) || !strings.Contains(err.Error(), "repository alpha") {
+	if err == nil || !strings.Contains(err.Error(), filepath.Join("docs", "repository-template.md")) || !strings.Contains(err.Error(), "repository alpha") {
 		t.Fatalf("error = %v", err)
 	}
 	if _, err := os.Stat(cfg.File); !os.IsNotExist(err) {
@@ -324,7 +375,9 @@ func TestSlugAndPageURL(t *testing.T) {
 
 func TestSlugCollisionsFailBeforeWriting(t *testing.T) {
 	dir := t.TempDir()
-	tmpl, err := loadPageTemplate("")
+	testutil.Chdir(t, dir)
+	testutil.WriteFile(t, dir, filepath.Join("docs", "repository-template.md"), "# [% .Name %]\n")
+	tmpl, err := loadPageTemplate()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,10 +404,10 @@ func TestHighestStableVersion(t *testing.T) {
 }
 
 func TestMergePageOptions(t *testing.T) {
-	base := Config{PagesDir: "configured/pages", Template: "configured.md", BaseURL: "/configured", BadgeURL: "configured.svg"}
-	overrides := Config{PagesDir: "flag/pages", Template: "flag.md", BaseURL: "/flag", BadgeURL: "flag.svg"}
+	base := Config{PagesDir: "configured/pages", BaseURL: "/configured", BadgeURL: "configured.svg"}
+	overrides := Config{PagesDir: "flag/pages", BaseURL: "/flag", BadgeURL: "flag.svg"}
 	got := Merge(base, overrides)
-	if got.PagesDir != "flag/pages" || got.Template != "flag.md" || got.BaseURL != "/flag" || got.BadgeURL != "flag.svg" {
+	if got.PagesDir != "flag/pages" || got.BaseURL != "/flag" || got.BadgeURL != "flag.svg" {
 		t.Errorf("flag options did not override config: %+v", got)
 	}
 	got = Merge(Config{}, Config{})

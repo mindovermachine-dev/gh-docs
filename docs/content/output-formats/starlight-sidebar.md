@@ -8,17 +8,16 @@ YAML, JSON, and HTML formats write one data or index file. `sidebar` mode writes
 ```sh
 gh docs index --owner mindovermachine-dev \
   --file docs/sidebar/repositories.mjs \
-  --pages-dir astro/src/content/docs/repositories \
-  --template astro/repository-template.md
+  --pages-dir astro/src/content/docs/repositories
 ```
 
-If `--template` is omitted, the command uses the maintained Starlight starter template in `internal/index/templates/starlight.md`. To copy it for editing, without contacting GitHub, run:
+Sidebar mode requires `docs/repository-template.md`; it does not use an embedded fallback. Create the standalone Markdown file from the maintained starter source without contacting GitHub:
 
 ```sh
-gh docs index --starlight --template astro/repository-template.md
+gh docs template --starlight --output docs
 ```
 
-The default destination is `repository-template.md` in the current directory. Scaffolding refuses to overwrite an existing file. Pass the edited file to a normal `sidebar` invocation.
+The default output folder is `docs`, so this creates `docs/repository-template.md`. Edit that file and run the index command. For another output folder, pass `--output <folder>`; an existing template is never replaced unless `--force` is supplied.
 
 ## Template syntax and fields
 
@@ -75,7 +74,7 @@ Latest commit: [% .LatestCommit.SHA %] — [% .LatestCommit.Message %]
 [% end %]
 ```
 
-The complete maintained starter demonstrates every supported field, including optional commit, version, license, stars, and badge values. Template parse and execution errors identify the template and (for execution errors) the repository. Pages and sidebar content are rendered before output files are written. Metadata lookup failures are warnings; discovery, rendering, and required output write failures stop the command.
+The complete maintained starter demonstrates every supported field, including optional commit, version, license, stars, and badge values. Near the top, it displays a documentation action link when `.HomepageURL` is set and always displays a GitHub repository action link. Template parse and execution errors identify the template and (for execution errors) the repository. Pages and sidebar content are rendered before output files are written. Metadata lookup failures are warnings; discovery, rendering, and required output write failures stop the command.
 
 ## Sidebar links and site setup
 

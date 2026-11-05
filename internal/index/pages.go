@@ -26,6 +26,8 @@ var starterFS embed.FS
 var safeName = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 var stableVersion = regexp.MustCompile(`^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$`)
 
+const defaultPageTemplate = "docs/repository-template.md"
+
 func runGH(args ...string) ([]byte, error) {
 	return exec.Command("gh", args...).Output()
 }
@@ -67,43 +69,30 @@ func pageURL(pagesDir, baseURL, repoSlug string) string {
 	return "/" + base + "/" + repoSlug + "/"
 }
 
-func loadPageTemplate(filename string) (*template.Template, error) {
-	var source []byte
-	var err error
-	if filename == "" {
-		source, err = starterFS.ReadFile("templates/starlight.md")
-	} else {
-		source, err = os.ReadFile(filename)
-	}
+func loadPageTemplate() (*template.Template, error) {
+	source, err := os.ReadFile(defaultPageTemplate)
 	if err != nil {
-		if filename == "" {
-			return nil, fmt.Errorf("failed to read embedded Starlight template: %w", err)
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("template %s is missing; create it with `gh docs template --starlight --output docs`", defaultPageTemplate)
 		}
-		return nil, fmt.Errorf("failed to read template %s: %w", filename, err)
+		return nil, fmt.Errorf("failed to read template %s: %w", defaultPageTemplate, err)
 	}
-	name := filename
-	if name == "" {
-		name = "built-in Starlight template"
-	}
-	tmpl, err := template.New(name).Delims("[%", "%]").Funcs(template.FuncMap{
+	tmpl, err := template.New(defaultPageTemplate).Delims("[%", "%]").Funcs(template.FuncMap{
 		"yaml": func(value any) (string, error) {
 			data, err := yaml.Marshal(value)
 			return strings.TrimSuffix(string(data), "\n"), err
 		},
 	}).Parse(string(source))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse template %s: %w", name, err)
+		return nil, fmt.Errorf("failed to parse template %s: %w", defaultPageTemplate, err)
 	}
 	return tmpl, nil
 }
 
-func scaffoldStarlight(destination string) error {
-	if destination == "" {
-		destination = "repository-template.md"
-	}
-	if _, err := os.Lstat(destination); err == nil {
-		return fmt.Errorf("template destination %s already exists", destination)
-	} else if !os.IsNotExist(err) {
+func scaffoldStarlight(destination string, force bool) error {
+	if _, err := os.Lstat(destination); err == nil && !force {
+		return fmt.Errorf("template destination %s already exists; use --force to overwrite", destination)
+	} else if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to check template destination %s: %w", destination, err)
 	}
 	source, err := starterFS.ReadFile("templates/starlight.md")
@@ -112,6 +101,12 @@ func scaffoldStarlight(destination string) error {
 	}
 	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
 		return fmt.Errorf("failed to create directory for %s: %w", destination, err)
+	}
+	if force {
+		if err := os.WriteFile(destination, source, 0o644); err != nil {
+			return fmt.Errorf("failed to write template %s: %w", destination, err)
+		}
+		return nil
 	}
 	file, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
@@ -164,11 +159,7 @@ func writePagesAndSidebar(cfg Config, repos []Repo, tmpl *template.Template) (st
 		repo.SidebarURL = pageURL(cfg.PagesDir, cfg.BaseURL, repo.Slug)
 		var rendered bytes.Buffer
 		if err := tmpl.Execute(&rendered, *repo); err != nil {
-			name := cfg.Template
-			if name == "" {
-				name = "built-in Starlight template"
-			}
-			return "", fmt.Errorf("failed to render template %s for repository %s: %w", name, repo.Name, err)
+			return "", fmt.Errorf("failed to render template %s for repository %s: %w", defaultPageTemplate, repo.Name, err)
 		}
 		pages = append(pages, page{path: target, data: rendered.Bytes()})
 	}
