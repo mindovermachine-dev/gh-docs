@@ -24,6 +24,19 @@ The default output folder is `docs`, so this creates `docs/repository-template.m
 
 Templates are regular Markdown files parsed with Go `text/template`. The gh-docs-specific delimiters are `[%` and `%]`, not Astro, Liquid, or Jekyll syntax. Markdown is rendered as-is (it is not HTML-escaped). The `yaml` helper safely encodes values for YAML front matter; use `[% yaml .Title %]` or `[% .Title | yaml %]`.
 
+Newlines outside a conditional block are literal template text, so a false block followed by a newline can leave an extra line in the rendered page. Use Go's `-%]` trim marker on multiline actions to remove surrounding template whitespace while keeping the conditional easy to read:
+
+```markdown
+[% if index .Workflows "release.yml" -%]
+[![Release]([% .RepoURL %]/actions/workflows/release.yml/badge.svg)]([% .RepoURL %]/actions/workflows/release.yml)
+[% end -%]
+[% if .LatestVersion -%]
+🏷️ [`[% .LatestVersion %]`]([% .RepoURL %]/releases/tag/[% .LatestVersion %])
+[% end -%]
+```
+
+The newline after each `-%]` action is trimmed. The newline before `[% end -%]` is inside the true branch, so it is emitted only when that branch renders; when the condition is false, no dangling line is left behind.
+
 The template receives a `Repo` with these fields. Optional metadata is an empty string, empty list, or zero when unavailable and can be checked with `if`.
 
 When placing a description in YAML frontmatter, pipe it through the `yaml` helper (for example, `description: [% .Description | yaml %]`). Repository descriptions are arbitrary strings; without YAML serialization, quotes, colons, or newlines can make the frontmatter invalid. In page body content, use `[% .Description %]` directly.

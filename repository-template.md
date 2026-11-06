@@ -1,55 +1,42 @@
 ---
 title: [% .Title | yaml %]
 description: [% .Description | yaml %]
+tableOfContents: false
+hero:
+  tagline: [% .Description | yaml %]
+  actions:
+    - text: Documentation
+      link: [% .HomepageURL %]
+      icon: right-arrow
+    - text: Github
+      link: [% .RepoURL %]
+      icon: right-arrow
+      variant: minimal
 ---
 
-## [% .Title %]
+**`[[% .Owner %]/[% .Name %]]([% .RepoURL %])`**
 
-[% .Description %]
-
-## Repository
-
-- Owner: [% .Owner %]
-- Name: [% .Name %]
-- Page slug: `[% .Slug %]`
-- Source: <[% .RepoURL %]>
-  [% if .HomepageURL %]
-- Documentation: <a href="[% .HomepageURL %]">[% .HomepageURL %]</a>
-  [% end %]
-  [% if .DefaultBranch %]- Default branch: `[% .DefaultBranch %]`[% end %]
-- Stars: [% .Stars %]
-  [% if .License %]
-- License: [% .License %]
-  [% end %]
-- Last updated: [% .UpdatedAt %]
-
-## Topics
-
+[% if index .Workflows "release.yml" -%]
+[![Release]([% .RepoURL %]/actions/workflows/release.yml/badge.svg)]([% .RepoURL %]/actions/workflows/release.yml)
+[% end -%]
+[% if index .Workflows "release-to-prod.yml" -%]
+[![Release]([% .RepoURL %]/actions/workflows/release-to-prod.yml/badge.svg)]([% .RepoURL %]/actions/workflows/release-to-prod.yml)
+[% end -%]
+[% if index .Workflows "on_semver.yml" -%]
+[![Release]([% .RepoURL %]/actions/workflows/on_semver.yml/badge.svg)]([% .RepoURL %]/actions/workflows/on_semver.yml)
+[% end -%]
+[% if .LatestVersion -%]
+🏷️ [`[% .LatestVersion %]`]([% .RepoURL %]/releases/tag/[% .LatestVersion %])<br/>
+[% end -%]
+[% if .License -%]
+📜 License: <br/>[% .License %]
+[% end -%]
+💬 [Discussions]([% .RepoURL %]/discussions/)<br/>
+🐛 [Issues]([% .RepoURL %]/issues/)
+🏆 [Releases]([% .RepoURL %]/releases/)
 [% if .Topics %]
+**Topics**
+
 [% range .Topics %]- [% . %]
 [% end %]
-[% else %]No topics listed.
-[% end %]
-
-## Activity
-
-[% if .LatestVersion %]
-
-- Latest stable version: [% .LatestVersion %]
-
-[% end %]
-[% if .LatestCommit.SHA %]
-
-- Latest commit: <a href="[% .RepoURL %]/commit/[% .LatestCommit.SHA %]">[% .LatestCommit.SHA %]</a>
-
-[% end %]
-[% if .LatestCommit.Date %]
-
-- Commit date: [% .LatestCommit.Date %]
-
-[% end %]
-[% if .LatestCommit.Message %]
-
-- Commit message: [% .LatestCommit.Message %]
-
 [% end %]

@@ -482,6 +482,31 @@ func TestWorkflowTemplateCondition(t *testing.T) {
 	}
 }
 
+func TestConditionalTrimMarkersWithCustomDelimiters(t *testing.T) {
+	tmpl, err := template.New("trim").Delims("[%", "%]").Parse("before\n[% if .Present -%]\noptional\n[% end -%]\nafter")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		name    string
+		present bool
+		want    string
+	}{
+		{"false branch", false, "before\nafter"},
+		{"true branch", true, "before\noptional\nafter"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var rendered strings.Builder
+			if err := tmpl.Execute(&rendered, map[string]bool{"Present": tt.present}); err != nil {
+				t.Fatal(err)
+			}
+			if rendered.String() != tt.want {
+				t.Errorf("rendered = %q, want %q", rendered.String(), tt.want)
+			}
+		})
+	}
+}
+
 func TestMergePageOptions(t *testing.T) {
 	base := Config{PagesDir: "configured/pages", BaseURL: "/configured"}
 	overrides := Config{PagesDir: "flag/pages", BaseURL: "/flag"}

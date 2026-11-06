@@ -1,5 +1,8 @@
 index:
   owner: mindovermachine-dev
-  topic: documentation
+  file: tmp/sample/docs-repos.mjs
   visibility: public
-  format: sidebar
+  template: repository-template.md
+  pages-dir: tmp/sample/content/repo
+  topics:
+    - documentation
