@@ -44,8 +44,8 @@ jobs:
           # node-version: 22 # default is 24
           # version: ^0.1.0 # default is latest
 
-- name: Trigger an index update
-  env:
-    GH_TOKEN: ${{ secrets.DOCS_INDEX }}
-  run: gh workflow --repo mindovermachine-dev/mindovermachine-dev.github.io run docs-deploy.yml
+      - name: Trigger an index update
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_INDEX }}
+        run: gh workflow --repo mindovermachine-dev/mindovermachine-dev.github.io run docs-deploy.yml
         
